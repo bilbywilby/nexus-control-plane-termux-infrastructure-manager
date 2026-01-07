@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel } from './types';
+import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel, ResearchQuery, WorkflowState, PluginItem, SystemAlert } from './types';
 import { ChatHandler } from './chat';
 import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
@@ -57,7 +57,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
       totalOperations: 14282,
       avgLatency: 22,
       securityScore: 99.9,
-      uptimeTrend: [99, 98, 99.9, 99.5, 100],
+      uptimeTrend: [99, 98, 99.9, 99.5, 100, 99.2, 99.9],
       failureCategories: { 'GATE_TIMEOUT': 12, 'SKILL_LOAD_FAIL': 3 }
     },
     environment: 'Termux',
@@ -73,7 +73,22 @@ export class ChatAgent extends Agent<Env, ChatState> {
       LOG_FILE: '/data/data/com.termux/files/home/.nexus/sys.log',
       SHELL: '/usr/bin/bash',
       U_ID: '772'
-    }
+    },
+    workflow: {
+      currentBranch: 'main',
+      lastCommitHash: '8f2c3d4e',
+      pipelineStatus: 'Idle',
+      version: '1.0.42',
+      changelog: ['Initial infrastructure commit']
+    },
+    plugins: [
+      { id: 'rust-comp', name: 'rust-compiler', author: 'Nexus Community', rating: 4.8, status: 'Available' },
+      { id: 'r2-sync', name: 'r2-sync-agent', author: 'Nexus Core', rating: 5.0, status: 'Installed', loadPath: '.plugins/r2-sync.js' }
+    ],
+    alerts: [
+      { id: 'ALT-01', level: 'Warning', message: 'High latency detected in validation gate', timestamp: Date.now(), threshold: 80, currentValue: 82 },
+      { id: 'ALT-02', level: 'Critical', message: 'Disk usage exceeding 85% on /data', timestamp: Date.now(), threshold: 85, currentValue: 88 }
+    ]
   };
   async onStart(): Promise<void> {
     this.chatHandler = new ChatHandler(
@@ -134,7 +149,53 @@ export class ChatAgent extends Agent<Env, ChatState> {
       const body = await request.json() as { message: string, model?: string };
       return this.handleChatMessage(body);
     }
+    if (method === 'POST' && url.pathname === '/research') {
+      const body = await request.json() as { question: string };
+      return this.handleResearch(body.question);
+    }
+    if (method === 'POST' && url.pathname === '/workflow') {
+      const body = await request.json() as { action: string };
+      return this.handleWorkflow(body.action);
+    }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
+  }
+  private async handleResearch(question: string): Promise<Response> {
+    this.emitSystemLog('INFO', `Research engine triggered: ${question}`);
+    const queryResult: ResearchQuery = {
+      id: `RES-${crypto.randomUUID().slice(0, 8)}`,
+      question,
+      status: 'Resolved',
+      confidence: 94,
+      results: `Analysis of ${question} suggests optimal subshell stability on aarch64 architectures when using Node.js v20+. Integrated validation patterns show 12% improvement in build integrity.`,
+      sources: ['infra_v2_spec', 'termux_hardened_kernel'],
+      timestamp: Date.now()
+    };
+    this.setState({
+      ...this.state,
+      researchHistory: [queryResult, ...this.state.researchHistory].slice(0, 50)
+    });
+    this.pushAuditLog('Info', `Research synthesized for: ${question.slice(0, 30)}...`, { queryId: queryResult.id });
+    return Response.json({ success: true, data: queryResult });
+  }
+  private async handleWorkflow(action: string): Promise<Response> {
+    const workflow = { ...this.state.workflow };
+    this.emitSystemLog('GIT_COMMIT', `Workflow action: ${action}`);
+    if (action === 'sync') {
+      workflow.pipelineStatus = 'Validating';
+      this.pushAuditLog('Git_Op', 'Synchronizing repository with remote origin', { branch: workflow.currentBranch });
+    } else if (action === 'deploy') {
+      workflow.pipelineStatus = 'Deploying';
+      this.pushAuditLog('Deploy', 'Production deployment sequence initiated', { version: workflow.version });
+    }
+    this.setState({ ...this.state, workflow });
+    // Simulate async progress
+    setTimeout(() => {
+      const finalWorkflow = { ...this.state.workflow };
+      finalWorkflow.pipelineStatus = 'Idle';
+      this.setState({ ...this.state, workflow: finalWorkflow });
+      this.emitSystemLog('INFO', `Workflow action ${action} completed successfully.`);
+    }, 3000);
+    return Response.json({ success: true, data: this.state.workflow });
   }
   private async handleChatMessage(body: { message: string, model?: string }): Promise<Response> {
     const { message } = body;

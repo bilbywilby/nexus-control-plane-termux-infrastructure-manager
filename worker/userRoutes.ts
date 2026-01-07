@@ -27,6 +27,28 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const sessions = await controller.listSessions();
         return c.json({ success: true, data: sessions });
     });
+    app.post('/api/research/:sessionId', async (c) => {
+        const sessionId = c.req.param('sessionId');
+        const body = await c.req.json();
+        const agent = await getAgentByName<Env, ChatAgent>(c.env.CHAT_AGENT, sessionId);
+        const url = new URL(c.req.url);
+        url.pathname = '/research';
+        return agent.fetch(new Request(url.toString(), {
+            method: 'POST',
+            body: JSON.stringify(body)
+        }));
+    });
+    app.post('/api/workflow/:sessionId', async (c) => {
+        const sessionId = c.req.param('sessionId');
+        const body = await c.req.json();
+        const agent = await getAgentByName<Env, ChatAgent>(c.env.CHAT_AGENT, sessionId);
+        const url = new URL(c.req.url);
+        url.pathname = '/workflow';
+        return agent.fetch(new Request(url.toString(), {
+            method: 'POST',
+            body: JSON.stringify(body)
+        }));
+    });
     app.get('/api/system/audit/:sessionId', async (c) => {
         const sessionId = c.req.param('sessionId');
         const agent = await getAgentByName<Env, ChatAgent>(c.env.CHAT_AGENT, sessionId);
