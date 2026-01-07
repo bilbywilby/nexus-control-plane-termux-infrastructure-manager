@@ -152,13 +152,23 @@ export class ChatAgent extends Agent<Env, ChatState> {
     if (level === 'WARN') auditLevel = 'Warning';
     if (level === 'RECOVERY') auditLevel = 'Recovery';
     if (level === 'GATE_PASS') auditLevel = 'Gate_Pass';
-    if (level === 'GIT_OP') auditLevel = 'Git_Op';
+    if (level === 'GIT_OP' || level === 'GIT_COMMIT') auditLevel = 'Git_Op';
+    if (level === 'DEPLOYMENT_START' || level === 'DEPLOY') auditLevel = 'Deploy';
+    let parsedMetadata = {};
+    if (intentMatch) {
+      try {
+        parsedMetadata = JSON.parse(intentMatch);
+      } catch (e) {
+        console.warn('Failed to parse telemetry metadata:', e);
+        parsedMetadata = { raw: intentMatch };
+      }
+    }
     const auditEntry: AuditLog = {
       id: `EVT-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
       level: auditLevel,
       message: content,
       timestamp: new Date(timestamp).toISOString(),
-      metadata: intentMatch ? JSON.parse(intentMatch) : {}
+      metadata: parsedMetadata
     };
     this.setState({
       ...this.state,
