@@ -1,138 +1,79 @@
-// Home page of the app.
-// Currently a demo placeholder "please wait" screen.
-// Replace this file with your actual app UI. Do not delete it to use some other file as homepage. Simply replace the entire contents of this file.
-
-import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
-
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { HAS_TEMPLATE_DEMO, TemplateDemo } from '@/components/TemplateDemo'
-import { Button } from '@/components/ui/button'
-import { Toaster, toast } from '@/components/ui/sonner'
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import React, { useState } from 'react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { OverviewView } from '@/components/dashboard/OverviewView';
+import { SnapshotsView } from '@/components/dashboard/SnapshotsView';
+import { SkillsView } from '@/components/dashboard/SkillsView';
+import { TerminalWidget } from '@/components/dashboard/TerminalWidget';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Zap } from 'lucide-react';
+import { Toaster } from '@/components/ui/sonner';
 export function HomePage() {
-  const [coins, setCoins] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
-
-  useEffect(() => {
-    if (!isRunning || startedAt === null) return
-
-    const t = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 250)
-
-    return () => clearInterval(t)
-  }, [isRunning, startedAt])
-
-  const formatted = useMemo(() => formatDuration(elapsedMs), [elapsedMs])
-
-  const onPleaseWait = () => {
-    setCoins((c) => c + 1)
-
-    if (!isRunning) {
-      // Resume from the current elapsed time
-      setStartedAt(Date.now() - elapsedMs)
-      setIsRunning(true)
-      toast.success('Building your app…', {
-        description: "Hang tight — we're setting everything up.",
-      })
-      return
-    }
-
-    setIsRunning(false)
-    toast.info('Still working…', {
-      description: 'You can come back in a moment.',
-    })
-  }
-
-  const onReset = () => {
-    setCoins(0)
-    setIsRunning(false)
-    setStartedAt(null)
-    setElapsedMs(0)
-    toast('Reset complete')
-  }
-
-  const onAddCoin = () => {
-    setCoins((c) => c + 1)
-    toast('Coin added')
-  }
-
+  const [activeTab, setActiveTab] = useState('overview');
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-      <ThemeToggle />
-      <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-
-      <div className="text-center space-y-8 relative z-10 animate-fade-in w-full">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-            <Sparkles className="w-8 h-8 text-white rotating" />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-        </div>
-
-        {HAS_TEMPLATE_DEMO ? (
-          <div className="max-w-5xl mx-auto text-left">
-            <TemplateDemo />
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-center gap-4">
-              <Button
-                size="lg"
-                onClick={onPleaseWait}
-                className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-                aria-live="polite"
-              >
-                Please Wait
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-              <div>
-                Time elapsed:{' '}
-                <span className="font-medium tabular-nums text-foreground">{formatted}</span>
+    <AppLayout className="bg-zinc-950 text-zinc-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-6 md:py-8 lg:py-10">
+          <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <span className="text-2xs font-mono uppercase tracking-widest text-emerald-500/80">Infrastructure Verified</span>
               </div>
-              <div>
-                Coins:{' '}
-                <span className="font-medium tabular-nums text-foreground">{coins}</span>
+              <h1 className="text-3xl font-display font-bold tracking-tight">Nexus Control Plane</h1>
+              <p className="text-muted-foreground text-sm font-mono mt-1">Termux Node: <span className="text-cyan-400">0x-alpha-v2</span></p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono text-emerald-400">System Online</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-white/5">
+                <Zap className="w-3.5 h-3.5 text-yellow-500" />
+                <span className="text-xs font-mono text-zinc-400">Latency: 24ms</span>
               </div>
             </div>
-
-            <div className="flex justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={onReset}>
-                Reset
-              </Button>
-              <Button variant="outline" size="sm" onClick={onAddCoin}>
-                Add Coin
-              </Button>
+          </header>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <div className="flex items-center justify-between">
+              <TabsList className="bg-zinc-900 border-zinc-800">
+                <TabsTrigger value="overview" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <LayoutDashboard className="w-4 h-4" /> Overview
+                </TabsTrigger>
+                <TabsTrigger value="snapshots" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <Database className="w-4 h-4" /> Snapshots
+                </TabsTrigger>
+                <TabsTrigger value="skills" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <Cpu className="w-4 h-4" /> Skills
+                </TabsTrigger>
+                <TabsTrigger value="logs" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <Terminal className="w-4 h-4" /> Console
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </>
-        )}
+            <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
+              <OverviewView />
+            </TabsContent>
+            <TabsContent value="snapshots" className="mt-0 focus-visible:outline-none">
+              <SnapshotsView />
+            </TabsContent>
+            <TabsContent value="skills" className="mt-0 focus-visible:outline-none">
+              <SkillsView />
+            </TabsContent>
+            <TabsContent value="logs" className="mt-0 focus-visible:outline-none">
+              <TerminalWidget />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
-
-      <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-        <p>Powered by Cloudflare</p>
+      <Toaster richColors theme="dark" />
+      <div className="fixed bottom-4 right-4 text-[10px] font-mono text-zinc-600 pointer-events-none select-none">
+        NEXUS_OS // BUILD_GATE_VERIFIED // RL_772
+      </div>
+      <footer className="mt-auto py-6 border-t border-white/5 text-center">
+        <p className="text-xs text-muted-foreground font-mono">
+          Note: AI request limits apply across all user apps.
+        </p>
       </footer>
-
-      <Toaster richColors closeButton />
-    </div>
-  )
+    </AppLayout>
+  );
 }
