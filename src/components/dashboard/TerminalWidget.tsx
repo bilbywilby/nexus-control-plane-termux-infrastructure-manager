@@ -63,8 +63,8 @@ export function TerminalWidget() {
         </div>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1">
-        {messages.map((m) => (
-          <div key={m.id} className="flex gap-3 text-[11px] leading-relaxed group animate-in fade-in duration-300">
+        {messages.map((m, idx) => (
+          <div key={m.id || `msg-${idx}`} className="flex gap-3 text-[11px] leading-relaxed group animate-in fade-in duration-300">
             <span className="text-zinc-800 shrink-0">[{new Date(m.timestamp).toLocaleTimeString([], { hour12: false, second: '2-digit' })}]</span>
             <div className="flex-1 min-w-0">
               <span className={cn("uppercase font-bold shrink-0 mr-2", m.role === 'user' ? 'text-cyan-500' : 'text-emerald-500')}>

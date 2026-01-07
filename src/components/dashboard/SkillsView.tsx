@@ -80,7 +80,11 @@ export function SkillsView() {
                         <span className="text-[8px] text-zinc-600 uppercase">Pre-Tool</span>
                         <code className="text-[10px] text-cyan-400 font-mono">{currentSkill.hooks.pre}</code>
                       </div>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRunHook(currentSkill.hooks?.pre!)}><Play className="w-3 h-3" /></Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-6 w-6" 
+                        onClick={() => currentSkill.hooks?.pre && handleRunHook(currentSkill.hooks.pre)}><Play className="w-3 h-3" /></Button>
                     </div>
                   )}
                   {currentSkill.hooks?.post && (
@@ -89,7 +93,11 @@ export function SkillsView() {
                         <span className="text-[8px] text-zinc-600 uppercase">Post-Tool</span>
                         <code className="text-[10px] text-emerald-400 font-mono">{currentSkill.hooks.post}</code>
                       </div>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRunHook(currentSkill.hooks?.post!)}><Play className="w-3 h-3" /></Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-6 w-6" 
+                        onClick={() => currentSkill.hooks?.post && handleRunHook(currentSkill.hooks.post)}><Play className="w-3 h-3" /></Button>
                     </div>
                   )}
                 </div>
