@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { chatService } from '@/lib/chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Terminal, Send, Trash2, Zap, WifiOff, Clock } from 'lucide-react';
-import { Message } from '../../../worker/types';
+import type { Message } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 import { useNetwork } from '@/hooks/use-network';
 export function TerminalWidget() {
@@ -26,25 +25,20 @@ export function TerminalWidget() {
     if (cached) {
       try {
         setMessages(JSON.parse(cached));
-      } catch (e) {
-        console.error("Failed to parse cache", e);
-      }
+      } catch (e) { console.error("Cache fail", e); }
     }
     loadMessages();
+    const interval = setInterval(loadMessages, 3000);
+    return () => clearInterval(interval);
   }, [loadMessages]);
   useEffect(() => {
-    localStorage.setItem('nexus_terminal_cache', JSON.stringify(messages.slice(-50)));
+    localStorage.setItem('nexus_terminal_cache', JSON.stringify(messages.slice(-100)));
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.skillInsight) {
-      setActiveContext(lastMsg.skillInsight.toUpperCase());
-    }
-  }, [messages, isLoading]);
+    if (lastMsg?.skillInsight) setActiveContext(lastMsg.skillInsight.toUpperCase());
+  }, [messages]);
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     const userMsg = input.trim();
@@ -59,10 +53,8 @@ export function TerminalWidget() {
     setMessages(prev => [...prev, tempMessage]);
     if (!isOnline) return;
     setIsLoading(true);
-    const res = await chatService.sendMessage(userMsg);
-    if (res.success) {
-      await loadMessages();
-    }
+    await chatService.sendMessage(userMsg);
+    await loadMessages();
     setIsLoading(false);
   };
   const handleClear = async () => {
@@ -77,6 +69,8 @@ export function TerminalWidget() {
       case 'WARN': return 'text-amber-500';
       case 'INFO': case 'GATE_PASS': return 'text-emerald-500';
       case 'RECOVERY': return 'text-cyan-500';
+      case 'GIT_COMMIT': return 'text-cyan-400';
+      case 'DEPLOYMENT_START': return 'text-purple-400';
       case 'DEBUG': return 'text-zinc-600';
       default: return 'text-zinc-400';
     }
@@ -87,10 +81,7 @@ export function TerminalWidget() {
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-emerald-500" />
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Nexus_Shell_v2.0</span>
-          <div className="flex items-center gap-1.5 ml-4">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[9px] text-emerald-500/60 font-bold uppercase tracking-tighter">Live_Tail_Active</span>
-          </div>
+          {!isOnline && <Badge className="bg-red-500/20 text-red-500 border-none text-[8px]">OFFLINE_MODE</Badge>}
         </div>
         <div className="flex items-center gap-4">
            {activeContext && (
@@ -103,20 +94,20 @@ export function TerminalWidget() {
           </Button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 scroll-smooth bg-[#020202]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#020202]">
         {messages.map((m) => (
           <div key={m.id} className="flex gap-3 text-[11px] leading-relaxed group">
-            <span className="text-zinc-700 shrink-0 select-none">[{new Date(m.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+            <span className="text-zinc-700 shrink-0">[{new Date(m.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
             <div className="flex-1 min-w-0">
               {m.isSystemLog ? (
                 <div className="flex gap-2">
                   <span className={cn("font-bold shrink-0", getLogLevelStyle(m.level))}>[{m.level || 'INFO'}]</span>
-                  <span className="text-zinc-400 break-words">{m.content}</span>
+                  <span className="text-zinc-400">{m.content}</span>
                 </div>
               ) : (
                 <div className="flex gap-2">
                   <span className={cn("font-bold uppercase shrink-0", m.role === 'user' ? "text-cyan-500" : "text-emerald-500")}>
-                    {m.role === 'user' ? 'LOCAL_OP>' : 'NEXUS_AGENT>'}
+                    {m.role === 'user' ? (m.isQueued ? 'QUEUED>' : 'LOCAL_OP>') : 'NEXUS_AGENT>'}
                   </span>
                   <span className={cn(m.role === 'user' ? "text-zinc-300" : "text-emerald-400")}>{m.content}</span>
                 </div>
@@ -127,7 +118,7 @@ export function TerminalWidget() {
         {isLoading && (
           <div className="flex items-center gap-2 text-emerald-500/50 text-[11px] animate-pulse py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>NEXUS_AGENT IS THINKING...</span>
+            <span>NEXUS_AGENT IS PROCESSING...</span>
           </div>
         )}
       </div>
