@@ -13,6 +13,7 @@ export function TerminalWidget() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeContext, setActiveContext] = useState<string | null>(null);
+  const [systemEnv, setSystemEnv] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isOnline } = useNetwork();
   const loadMessages = useCallback(async () => {
@@ -20,6 +21,9 @@ export function TerminalWidget() {
     const res = await chatService.getMessages();
     if (res.success && res.data) {
       setMessages(res.data.messages);
+      if (res.data.systemEnv) {
+        setSystemEnv(res.data.systemEnv);
+      }
     }
   }, [isOnline]);
   useEffect(() => {
@@ -66,7 +70,7 @@ export function TerminalWidget() {
         content: 'Available Commands:\n- git-rollback [snapshot_id]: Restore system state\n- git-deploy-gh [branch] [remote]: Push to GitHub\n- nexus-gate --verify: Integrity check\n- help: Show this menu',
         timestamp: Date.now(),
         isSystemLog: true,
-        level: 'INFO'
+        level: 'INFO' as LogLevel
       };
       setMessages(prev => [...prev, helpMsg]);
       return true;
@@ -188,7 +192,9 @@ export function TerminalWidget() {
           </Button>
         </div>
         <div className="mt-1 flex justify-end px-1">
-           <span className="text-[8px] font-mono text-zinc-700 uppercase">log output: ${this?.state?.systemEnv?.LOG_FILE || '.nexus/sys.log'}</span>
+           <span className="text-[8px] font-mono text-zinc-700 uppercase">
+             log output: {systemEnv?.LOG_FILE || '.nexus/sys.log'}
+           </span>
         </div>
       </div>
     </div>

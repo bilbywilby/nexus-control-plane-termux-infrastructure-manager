@@ -8,7 +8,6 @@ import { chatService } from '@/lib/chat';
 import type { ChatState, AuditLog } from '../../../worker/types';
 export function OverviewView() {
   const [state, setState] = useState<ChatState | null>(null);
-  const [isLocal, setIsLocal] = useState(true);
   useEffect(() => {
     const fetchState = async () => {
       const res = await chatService.getMessages();
