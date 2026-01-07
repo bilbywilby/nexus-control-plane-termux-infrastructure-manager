@@ -11,7 +11,7 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION';
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION' | 'GIT_OP';
 export interface ValidationCheck {
   id: string;
   status: 'Pass' | 'Fail' | 'Warning';
