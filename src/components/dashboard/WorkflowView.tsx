@@ -1,162 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitBranch, Github, Play, CheckCircle2, RefreshCw, FileCode, Layers, ArrowRight, ShieldCheck, AlertTriangle, FileJson, Wand2, Download, Terminal, Link, Globe } from 'lucide-react';
+import { GitBranch, GitMerge, GitCommit, CheckCircle2, AlertCircle, RefreshCw, Layers, Terminal, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { chatService } from '@/lib/chat';
-import type { WorkflowState, InfrastructureFile, ValidationReport } from '../../../worker/types';
-import { cn } from '@/lib/utils';
+const workflowSteps = [
+  { id: 'branch', title: 'Local Feature', status: 'completed', desc: 'Nexus_Core_v2-stable' },
+  { id: 'validation', title: 'QA Validation', status: 'processing', desc: 'Running gate_v3 test suite' },
+  { id: 'merge', title: 'Mainline Sync', status: 'pending', desc: 'Awaiting PR approval' }
+];
 export function WorkflowView() {
-  const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [showJson, setShowJson] = useState(false);
-  useEffect(() => {
-    const fetchData = async () => {
-      const res = await chatService.getMessages();
-      if (res.success && res.data) {
-        setWorkflow(res.data.workflow);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, []);
-  const handleRunValidation = async () => {
-    setIsRunning(true);
-    toast.info("Triggering GitHub Action Pipeline...");
-    const res = await chatService.runValidationV3({ fix: false });
-    if (res.success) toast.success("CI/CD run complete.");
-    setTimeout(() => setIsRunning(false), 2000);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const handleSync = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast.success("Git workspace synchronized with remote origin.");
+    }, 2000);
   };
-  const report = workflow?.lastValidationReport;
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12 space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between border-b border-white/5 pb-6">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Github className="w-5 h-5 text-white" /> CI/CD & Actions Lifecycle
-          </h2>
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">Expanded Pipeline: PR_Review // DEP_AUDIT // DOCS</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex items-center justify-between bg-zinc-900/40 p-6 rounded-2xl border border-white/5">
+        <div className="flex items-center gap-6">
+          <div className="h-16 w-16 rounded-2xl bg-cyan-600/10 border border-cyan-500/20 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+            <GitBranch className="h-8 w-8 text-cyan-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-1">Git Superuser Workflow</h2>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20 font-mono text-[10px]">HEAD: feature/nexus-automation</Badge>
+              <span className="text-[10px] text-zinc-500 font-mono tracking-widest uppercase">Last Commit: 8f2c3d4e</span>
+            </div>
+          </div>
         </div>
         <div className="flex gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded font-mono text-[9px] text-emerald-500">
-            <Globe className="w-3 h-3" /> WEBHOOK_ACTIVE
-          </div>
-          <Button onClick={handleRunValidation} disabled={isRunning} className="bg-zinc-100 text-zinc-950 hover:bg-zinc-300 font-mono text-xs">
-            {isRunning ? <RefreshCw className="w-3 h-3 animate-spin mr-2" /> : <Play className="w-3 h-3 mr-2" />}
-            RUN_CI_PIPELINE
+          <Button onClick={handleSync} disabled={isSyncing} variant="outline" className="bg-zinc-900 border-white/10 text-xs font-mono">
+            {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
+            SYNC_REPO
+          </Button>
+          <Button className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs">
+            CREATE_PR
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="bg-zinc-900/50 border-white/5">
-            <CardHeader className="border-b border-white/5">
-              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Active Workflow: ci.yml</CardTitle>
+            <CardHeader className="border-b border-white/5 py-4">
+              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Post-Validation QA Suite</CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {[
-                  { id: 'review', name: 'Claude PR Review', status: 'Completed', icon: ShieldCheck, time: '2m ago' },
-                  { id: 'audit', name: 'Dependency Security Audit', status: 'Completed', icon: AlertTriangle, time: '4m ago' },
-                  { id: 'docs', name: 'Auto-Generate Documentation', status: 'In_Progress', icon: RefreshCw, time: 'Now' },
-                  { id: 'deploy', name: 'Infrastructure Validation', status: 'Pending', icon: Play, time: 'Scheduled' }
-                ].map((step) => (
-                  <div key={step.id} className="flex items-center justify-between p-4 bg-black/40 rounded-lg border border-white/5">
-                    <div className="flex items-center gap-4">
-                      <div className={cn("p-2 rounded-lg bg-zinc-800", step.status === 'In_Progress' && 'animate-spin')}>
-                        <step.icon className={cn("w-4 h-4",
-                          step.status === 'Completed' ? 'text-emerald-500' :
-                          step.status === 'In_Progress' ? 'text-cyan-500' : 'text-zinc-500'
-                        )} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white">{step.name}</h4>
-                        <p className="text-[10px] text-zinc-500 font-mono uppercase">{step.time}</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={cn(
-                      "text-[9px] font-mono",
-                      step.status === 'Completed' ? 'border-emerald-500/20 text-emerald-500' :
-                      step.status === 'In_Progress' ? 'border-cyan-500/20 text-cyan-500' : 'border-zinc-500/20 text-zinc-500'
-                    )}>
-                      {step.status}
-                    </Badge>
+            <CardContent className="p-6 space-y-4">
+              {[
+                { name: 'gate_syntax_integrity', status: 'pass', latency: '12ms' },
+                { name: 'skill_regex_matching', status: 'pass', latency: '4ms' },
+                { name: 'storage_io_bounds', status: 'fail', latency: '142ms' },
+              ].map((test, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    {test.status === 'pass' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                    <span className="text-xs font-mono text-zinc-300 uppercase">{test.name}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-mono text-zinc-600">{test.latency}</span>
+                    <Badge className={test.status === 'pass' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}>{test.status.toUpperCase()}</Badge>
+                  </div>
+                </div>
+              ))}
+              <Button variant="ghost" className="w-full text-xs font-mono text-zinc-500 hover:text-emerald-500 border border-dashed border-white/5 mt-2">
+                RE-RUN_FULL_QA_SUITE
+              </Button>
             </CardContent>
           </Card>
-          {report && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Build Telemetry</h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowJson(!showJson)} className="text-[9px] font-mono h-6">
-                  {showJson ? 'HIDE_RAW' : 'VIEW_RAW'}
-                </Button>
-              </div>
-              {showJson ? (
-                <Card className="bg-black/90 border-white/5 p-4">
-                  <pre className="text-[10px] text-emerald-500 overflow-x-auto">
-                    {JSON.stringify(report, null, 2)}
-                  </pre>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {report?.checks?.slice(0, 4).map(check => (
-                    <div key={check.id} className="p-4 rounded-lg bg-zinc-900/50 border border-white/5 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-zinc-500 font-mono uppercase">{check.id}</span>
-                        <span className="text-[11px] text-zinc-300 font-bold">{check.status}</span>
-                      </div>
-                      <CheckCircle2 className={cn("w-4 h-4", check.status === 'Pass' ? 'text-emerald-500' : 'text-amber-500')} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <Card className="bg-zinc-900/50 border-white/5 overflow-hidden">
+             <div className="p-4 bg-zinc-900/80 border-b border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Auto-Generated Changelog</span>
+                <span className="text-[10px] text-zinc-600 font-mono">v1.0.42-STABLE</span>
+             </div>
+             <div className="p-6 font-mono text-[11px] text-zinc-500 space-y-2">
+                <div className="flex gap-2"><span className="text-emerald-500">[ADD]</span> Integrated Git Workflow module.</div>
+                <div className="flex gap-2"><span className="text-cyan-500">[FIX]</span> Latency spike in snapshot integrity gate.</div>
+                <div className="flex gap-2"><span className="text-yellow-500">[MOD]</span> Enhanced Skill Matrix discovery regex.</div>
+             </div>
+          </Card>
         </div>
         <div className="space-y-6">
-          <Card className="bg-zinc-900/50 border-white/5">
-            <CardHeader className="border-b border-white/5">
-              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Pipeline Artifacts</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-3">
-                  {workflow?.artifacts?.map((art, i) => (
-                    <div key={i} className="p-3 rounded bg-black/40 border border-white/5 flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <FileCode className="w-4 h-4 text-zinc-500" />
-                        <span className="text-[11px] font-mono text-zinc-300 truncate max-w-[120px]">{art}</span>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="w-3 h-3" /></Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7"><Link className="w-3 h-3" /></Button>
-                      </div>
-                    </div>
-                  )) || []}
-                  {(!workflow?.artifacts || workflow.artifacts.length === 0) && <p className="text-[10px] text-zinc-600 italic text-center py-10">No artifacts found for current run.</p>}
+          <Card className="bg-zinc-900/50 border-white/5 p-6 h-full">
+            <h3 className="text-xs font-mono uppercase text-zinc-500 mb-6 tracking-widest">Release Pipeline</h3>
+            <div className="space-y-8 relative">
+              <div className="absolute left-4 top-0 bottom-0 w-[1px] bg-zinc-800" />
+              {workflowSteps.map((step, i) => (
+                <div key={i} className="relative flex items-start gap-4 z-10">
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                     step.status === 'completed' ? 'bg-emerald-500 border-emerald-400' :
+                     step.status === 'processing' ? 'bg-zinc-900 border-cyan-500 animate-pulse' :
+                     'bg-zinc-900 border-zinc-800'
+                   }`}>
+                     {step.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-white" /> : <div className="w-2 h-2 rounded-full bg-zinc-700" />}
+                   </div>
+                   <div>
+                      <p className={`text-xs font-bold uppercase ${step.status === 'completed' ? 'text-zinc-100' : 'text-zinc-500'}`}>{step.title}</p>
+                      <p className="text-[10px] text-zinc-600 font-mono">{step.desc}</p>
+                   </div>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-          <Card className="bg-violet-500/5 border border-violet-500/10 p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Terminal className="w-4 h-4 text-violet-500" />
-              <h4 className="text-[10px] font-mono text-violet-500 uppercase font-bold tracking-widest">Daemon Status</h4>
+              ))}
             </div>
-            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed bg-black/40 p-3 rounded border border-white/5">
-              [INFO] Scheduled sweep in: 04:12:44<br/>
-              [OK] Last run status: SUCCESS (0 exit code)<br/>
-              [OK] Snapshots pruned: 12
-            </p>
-            <Button variant="outline" className="w-full text-[9px] font-mono h-8 border-violet-500/20 text-violet-400 hover:bg-violet-500/10">
-              TRIGGER_MANUAL_SWEEP
-            </Button>
+            <div className="mt-12 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+               <div className="flex items-center gap-2 mb-2">
+                  <Terminal className="w-3 h-3 text-emerald-500" />
+                  <span className="text-[10px] font-mono text-emerald-500 uppercase">Release Summary</span>
+               </div>
+               <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
+                  Infrastructure meets 94.2% stability criteria. Recommended for Workers deployment.
+               </p>
+            </div>
           </Card>
         </div>
       </div>

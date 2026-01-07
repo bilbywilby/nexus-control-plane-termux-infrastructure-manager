@@ -10,7 +10,10 @@ import {
   ScrollText,
   FileBarChart,
   LifeBuoy,
-  ShieldCheck
+  ShieldCheck,
+  GitBranch,
+  BookOpen,
+  Bell
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,8 +46,10 @@ export function AppSidebar(): JSX.Element {
           <SidebarMenu>
             {[
               { label: 'Dashboard', icon: LayoutDashboard },
+              { label: 'Workflow', icon: GitBranch },
               { label: 'Registry', icon: Database },
               { label: 'Skill Matrix', icon: Cpu },
+              { label: 'Documentation', icon: BookOpen },
               { label: 'Audit Trail', icon: ScrollText },
               { label: 'Analytics', icon: FileBarChart },
               { label: 'Shell Console', icon: Terminal },
@@ -59,39 +64,27 @@ export function AppSidebar(): JSX.Element {
           </SidebarMenu>
         </SidebarGroup>
         <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className="text-zinc-500 text-[10px] uppercase tracking-widest font-mono mb-2">System Health</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-zinc-500 text-[10px] uppercase tracking-widest font-mono mb-2">Runtime Context</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <div className="px-3 py-2 space-y-4">
-                <div className="space-y-1">
+             <SidebarMenuItem className="px-3 py-2 space-y-4">
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                   <span className="text-zinc-500">GIT_BRANCH:</span>
+                   <span className="text-cyan-500">feature/nexus-7</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                   <span className="text-zinc-500">ACTIVE_ALERTS:</span>
+                   <span className="text-red-500 font-bold flex items-center gap-1">2 <Bell className="w-2.5 h-2.5" /></span>
+                </div>
+                <div className="space-y-1 mt-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-mono text-zinc-400">DISK: 4.2GB / 10GB</span>
-                    <span className="text-[9px] font-mono text-emerald-500">42%</span>
+                    <span className="text-[9px] font-mono text-zinc-400 uppercase">DISK_USAGE</span>
+                    <span className="text-[9px] font-mono text-red-500">88%</span>
                   </div>
                   <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 w-[42%] transition-all duration-500" />
+                    <div className="h-full bg-red-500 w-[88%] transition-all duration-500" />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-mono text-zinc-400">LOAD: 12%</span>
-                    <span className="text-[9px] font-mono text-cyan-500">STABLE</span>
-                  </div>
-                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-cyan-500 w-[12%] transition-all duration-500" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-mono text-zinc-400">AVG BUILD TIME</span>
-                    <span className="text-[9px] font-mono text-zinc-500">42s</span>
-                  </div>
-                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-zinc-500 w-[65%] transition-all duration-500" />
-                  </div>
-                </div>
-              </div>
-            </SidebarMenuItem>
+             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -109,7 +102,7 @@ export function AppSidebar(): JSX.Element {
           <Activity className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
         </div>
         <div className="mt-4 pt-2 border-t border-white/5 text-center">
-          <span className="text-[8px] font-mono text-zinc-700 hover:text-zinc-500 cursor-pointer uppercase tracking-widest">Build Node: RGC0_ALPHA</span>
+          <span className="text-[8px] font-mono text-zinc-700 hover:text-zinc-500 cursor-pointer uppercase tracking-widest">Node ID: RGC0_ALPHA_V7</span>
         </div>
       </SidebarFooter>
     </Sidebar>

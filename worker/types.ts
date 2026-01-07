@@ -11,7 +11,7 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS';
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START';
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -29,6 +29,29 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
   result?: unknown;
 }
+export interface WorkflowState {
+  currentBranch: string;
+  lastCommitHash: string;
+  pipelineStatus: 'Idle' | 'Building' | 'Validating' | 'Deploying' | 'Failed';
+  version: string;
+  changelog: string[];
+}
+export interface PluginItem {
+  id: string;
+  name: string;
+  author: string;
+  rating: number;
+  status: 'Installed' | 'Available';
+  loadPath?: string;
+}
+export interface SystemAlert {
+  id: string;
+  level: 'Warning' | 'Critical';
+  message: string;
+  timestamp: number;
+  threshold?: number;
+  currentValue?: number;
+}
 export type SkillStatus = 'Active' | 'Standby' | 'Disabled';
 export type CircuitBreakerStatus = 'Closed' | 'Open' | 'Half-Open';
 export interface Skill {
@@ -42,10 +65,12 @@ export interface Skill {
   status: SkillStatus;
   lastAdjustment: number;
   description: string;
+  loadPath?: string;
+  sop?: string;
 }
 export interface AuditLog {
   id: string;
-  level: 'Info' | 'Warning' | 'Error' | 'Recovery' | 'Gate_Pass' | 'Skill_Activate';
+  level: 'Info' | 'Warning' | 'Error' | 'Recovery' | 'Gate_Pass' | 'Skill_Activate' | 'Git_Op' | 'Deploy';
   message: string;
   timestamp: string;
   metadata: Record<string, any>;
@@ -103,6 +128,9 @@ export interface ChatState {
   environment: 'Termux' | 'Desktop';
   roadmap: RoadmapStage[];
   systemEnv: Record<string, string>;
+  workflow: WorkflowState;
+  plugins: PluginItem[];
+  alerts: SystemAlert[];
 }
 export interface SessionInfo {
   id: string;
