@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Search, Terminal, Cpu, Shield, Book, ChevronRight, Copy, Check, FileText, GitBranch, Github, Code, FolderTree } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
