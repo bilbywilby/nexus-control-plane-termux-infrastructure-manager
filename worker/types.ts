@@ -11,6 +11,7 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS';
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -20,6 +21,7 @@ export interface Message {
   skillInsight?: string;
   isSystemLog?: boolean;
   isQueued?: boolean;
+  level?: LogLevel;
 }
 export interface ToolCall {
   id: string;
@@ -47,6 +49,12 @@ export interface AuditLog {
   message: string;
   timestamp: string;
   metadata: Record<string, any>;
+}
+export interface RoadmapStage {
+  id: string;
+  title: string;
+  status: 'completed' | 'current' | 'upcoming';
+  progress: number;
 }
 export interface ReportingMetrics {
   totalOperations: number;
@@ -93,6 +101,8 @@ export interface ChatState {
   auditLogs: AuditLog[];
   reporting: ReportingMetrics;
   environment: 'Termux' | 'Desktop';
+  roadmap: RoadmapStage[];
+  systemEnv: Record<string, string>;
 }
 export interface SessionInfo {
   id: string;
