@@ -9,7 +9,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
     messages: [],
     sessionId: crypto.randomUUID(),
     isProcessing: false,
-    model: 'google-ai-studio/gemini-2.5-flash',
+    model: 'google-ai-studio/gemini-1.5-flash',
     activeSkills: [],
     skills: [
       {
@@ -103,8 +103,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
     this.emitSystemLog('INFO', 'Nexus node initialized. Storage path verified.');
   }
   private emitSystemLog(level: LogLevel, content: string) {
-    const timestamp = new Date().toISOString();
-    const formattedLog = `[${timestamp}] [${level}] ${content}`;
     const log: Message = {
       id: crypto.randomUUID(),
       role: 'system',
@@ -114,7 +112,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
       level
     };
     const workflow = { ...this.state.workflow };
-    workflow.scriptLogs = [...workflow.scriptLogs, formattedLog].slice(-50);
+    const timestamp = new Date().toISOString();
+    workflow.scriptLogs = [...workflow.scriptLogs, `[${timestamp}] [${level}] ${content}`].slice(-50);
     this.setState({
       ...this.state,
       messages: [...this.state.messages, log].slice(-200),
@@ -154,7 +153,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
     if (action === 'deploy-github') return this.simulateGithubDeploy(args?.branch || 'main', args?.remote || 'origin');
     if (action === 'superuser-v2') return this.simulateSuperuserWorkflow();
     if (action === 'rollback') return this.simulateRollback(args?.snapshotId);
-    // Default legacy sync
     const workflow = { ...this.state.workflow };
     this.emitSystemLog('GIT_COMMIT', `Workflow action: ${action}`);
     workflow.pipelineStatus = 'Validating';
@@ -173,7 +171,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
     workflow.pipelineStatus = 'Validating';
     workflow.executionStep = 'CheckingVars';
     this.setState({ ...this.state, workflow });
-    this.emitSystemLog('INFO', `Checking environment: PROJECTS_DIR=${this.state.systemEnv.PROJECTS_DIR}`);
     setTimeout(() => {
       this.updateWorkflowStep('ValidatingBuild');
       this.emitSystemLog('INFO', 'Running validate_build --gate-v3...');
@@ -247,15 +244,22 @@ export class ChatAgent extends Agent<Env, ChatState> {
   }
   private async handleChatMessage(body: { message: string, model?: string }): Promise<Response> {
     const { message } = body;
+    const currentHistory = [...this.state.messages];
     const userMessage = createMessage('user', message);
     this.setState({
       ...this.state,
-      messages: [...this.state.messages, userMessage],
+      messages: [...currentHistory, userMessage],
       isProcessing: true
     });
     try {
-      const response = await this.chatHandler!.processMessage(message, this.state.messages);
-      const assistantMessage: Message = createMessage('assistant', response.content, response.toolCalls);
+      const response = await this.chatHandler!.processMessage(
+        message, 
+        currentHistory, 
+        undefined, 
+        this.state.activeSkills, 
+        this.state.skills
+      );
+      const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
       this.setState({
         ...this.state,
         messages: [...this.state.messages, assistantMessage],

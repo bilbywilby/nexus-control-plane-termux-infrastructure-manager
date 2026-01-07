@@ -83,8 +83,8 @@ export function WorkflowView() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  onClick={() => handleAction('SUPERUSER_V2', () => chatService.triggerWorkflowAction('superuser-v2'))} 
+                <Button
+                  onClick={() => handleAction('SUPERUSER_V2', () => chatService.triggerWorkflowAction('superuser-v2'))}
                   disabled={isBusy}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs"
                 >
@@ -92,20 +92,20 @@ export function WorkflowView() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-zinc-950 border-white/10 text-[10px] font-mono">
-                Full v2.2: Validate (Gate V3) -> AutoFix -> Snapshot
+                Full v2.2: Validate (Gate V3) {"->"} AutoFix {"->"} Snapshot
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button 
-            onClick={() => handleAction('GITHUB_PUSH', () => chatService.deployToGithub())} 
+          <Button
+            onClick={() => handleAction('GITHUB_PUSH', () => chatService.deployToGithub())}
             disabled={isBusy}
             variant="outline"
             className="bg-zinc-900 border-white/10 text-xs font-mono text-cyan-400"
           >
             <Github className="w-3.5 h-3.5 mr-2" /> DEPLOY_GH
           </Button>
-          <Button 
-            onClick={() => handleAction('ROLLBACK', () => chatService.executeRollback())} 
+          <Button
+            onClick={() => handleAction('ROLLBACK', () => chatService.executeRollback())}
             disabled={isBusy}
             variant="destructive"
             className="text-xs font-mono"
