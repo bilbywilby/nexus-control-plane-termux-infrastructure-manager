@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cpu, Shield, Globe, Terminal, Zap, Layers, Brain, Box, Share2, ShieldCheck, FileText, Code2, ShoppingBag, ExternalLink, Download, Target, Play, Sparkles, HelpCircle } from 'lucide-react';
+import { Cpu, Shield, Globe, Terminal, Zap, Layers, Brain, Box, Share2, ShieldCheck, FileText, Code2, ShoppingBag, ExternalLink, Download, Target, Play, Sparkles, HelpCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
 import type { Skill } from '../../../worker/types';
@@ -23,7 +23,7 @@ export function SkillsView() {
       }
     };
     fetchSkills();
-  }, [selectedSkillId]);
+  }, []);
   const currentSkill = skills.find(s => s.id === selectedSkillId);
   const handleRunHook = (hook: string) => {
     toast.info(`Executing skill hook: ${hook}...`);
@@ -114,7 +114,7 @@ export function SkillsView() {
                           <span className="text-[8px] text-zinc-600 uppercase">Pre-Tool</span>
                           <code className="text-[10px] text-cyan-400 font-mono">{currentSkill.hooks.pre}</code>
                         </div>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRunHook(currentSkill.hooks!.pre!)}><Play className="w-3 h-3" /></Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRunHook(currentSkill.hooks!.pre)}><Play className="w-3 h-3" /></Button>
                       </div>
                     )}
                   </div>
@@ -167,7 +167,7 @@ export function SkillsView() {
                   <p>[INFO] Autonomic routing latency: 1.2ms</p>
                   <p className="text-emerald-500/80 mt-4"># Usage Example:</p>
                   <p className="text-zinc-400">./evaluate_intent.sh "push to production"</p>
-                  <p className="text-cyan-400">>> Match: deploy-github (Context Injected)</p>
+                  <p className="text-cyan-400">&gt;&gt; Match: deploy-github (Context Injected)</p>
                 </div>
               </div>
             </div>
@@ -175,12 +175,5 @@ export function SkillsView() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-function ArrowRight(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-    </svg>
   );
 }
