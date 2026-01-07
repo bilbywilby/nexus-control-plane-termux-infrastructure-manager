@@ -1,9 +1,8 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message } from './types';
+import type { ChatState, Skill, Message, SkillStatus, ResearchQuery } from './types';
 import { ChatHandler } from './chat';
-import { API_RESPONSES } from './config';
-import { createMessage, createStreamResponse, createEncoder } from './utils';
+import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
   private chatHandler?: ChatHandler;
   initialState: ChatState = {
@@ -17,11 +16,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
         id: 'python-dev',
         name: 'python-dev',
         icon: 'Cpu',
-        triggerRegex: '.*\\.py$',
+        triggerRegex: '.*\\.py',
         confidence: 85,
         successCount: 120,
         totalActivations: 140,
-        status: 'Active',
+        status: 'Active' as SkillStatus,
         lastAdjustment: Date.now(),
         description: 'Lints, tests, and builds Python modules.'
       },
@@ -33,7 +32,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
         confidence: 92,
         successCount: 45,
         totalActivations: 48,
-        status: 'Standby',
+        status: 'Standby' as SkillStatus,
         lastAdjustment: Date.now(),
         description: 'Automated vulnerability scanning for source code.'
       },
@@ -45,7 +44,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
         confidence: 78,
         successCount: 89,
         totalActivations: 112,
-        status: 'Active',
+        status: 'Active' as SkillStatus,
         lastAdjustment: Date.now(),
         description: 'Cloudflare Workers and Pages synchronization.'
       }
@@ -56,7 +55,16 @@ export class ChatAgent extends Agent<Env, ChatState> {
       circuitBreakerStatus: 'Closed',
       avgLatency: 24,
       consecutiveFailures: 0
-    }
+    },
+    faultTolerance: {
+      primaryPathActive: true,
+      secondaryPathActive: false,
+      recoverySuccessRate: 94.2,
+      uptimeScore: 99.9,
+      redundantSnapshotsCount: 3
+    },
+    researchHistory: [],
+    environment: 'Termux'
   };
   async onStart(): Promise<void> {
     this.chatHandler = new ChatHandler(
@@ -65,39 +73,50 @@ export class ChatAgent extends Agent<Env, ChatState> {
       this.state.model
     );
   }
-  private async checkResilience() {
+  private async simulateSelfHealing() {
     const stats = { ...this.state.resilience };
-    // Simulated gate failure check (2% failure rate simulation)
-    const failure = Math.random() < 0.02;
-    if (failure) {
-      stats.consecutiveFailures += 1;
-      stats.retryCount += 1;
-      stats.lastFailureTime = Date.now();
-      if (stats.consecutiveFailures >= 3) {
-        stats.circuitBreakerStatus = 'Open';
-      }
+    const ft = { ...this.state.faultTolerance };
+    if (stats.consecutiveFailures > 0) {
+      ft.primaryPathActive = false;
+      ft.secondaryPathActive = true;
+      ft.recoverySuccessRate = Math.min(100, ft.recoverySuccessRate + 0.1);
+      const log: Message = {
+        id: crypto.randomUUID(),
+        role: 'system',
+        content: `[HEAL] Primary path failed. Failing over to secondary validation path...`,
+        timestamp: Date.now(),
+        isSystemLog: true
+      };
+      this.setState({ ...this.state, resilience: stats, faultTolerance: ft, messages: [...this.state.messages, log] });
     } else {
-      stats.consecutiveFailures = 0;
-      if (stats.circuitBreakerStatus === 'Open') {
-        stats.circuitBreakerStatus = 'Half-Open';
-      } else if (stats.circuitBreakerStatus === 'Half-Open') {
-        stats.circuitBreakerStatus = 'Closed';
-      }
+      ft.primaryPathActive = true;
+      ft.secondaryPathActive = false;
+      this.setState({ ...this.state, faultTolerance: ft });
     }
-    this.setState({ ...this.state, resilience: stats });
-    return failure;
   }
-  private identifyActiveSkills(message: string): string[] {
-    return this.state.skills
-      .filter(skill => {
-        try {
-          const regex = new RegExp(skill.triggerRegex, 'i');
-          return regex.test(message);
-        } catch {
-          return false;
-        }
-      })
-      .map(s => s.id);
+  private async handleResearchQuery(question: string): Promise<ResearchQuery> {
+    const id = `RES-${Math.floor(Math.random() * 9000) + 1000}`;
+    const query: ResearchQuery = {
+      id,
+      question,
+      status: 'Analyzing',
+      confidence: 0,
+      sources: [],
+      timestamp: Date.now()
+    };
+    this.setState({ ...this.state, researchHistory: [query, ...this.state.researchHistory] });
+    // Simulate multi-step reasoning
+    const results = `Synthesis complete for: ${question}. Detected patterns in Termux/Android architecture suggest optimized resource allocation is possible via secondary validation gates.`;
+    const resolved: ResearchQuery = {
+      ...query,
+      status: 'Resolved',
+      confidence: 94,
+      results,
+      sources: ['https://termux.dev/wiki', 'nexus-core-logs-v2']
+    };
+    const updatedHistory = this.state.researchHistory.map(q => q.id === id ? resolved : q);
+    this.setState({ ...this.state, researchHistory: updatedHistory });
+    return resolved;
   }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -106,61 +125,36 @@ export class ChatAgent extends Agent<Env, ChatState> {
       return Response.json({ success: true, data: this.state });
     }
     if (method === 'POST' && url.pathname === '/chat') {
-      return this.handleChatMessage(await request.json());
+      const body = await request.json() as { message: string, stream?: boolean, model?: string };
+      return this.handleChatMessage(body);
     }
-    if (method === 'DELETE' && url.pathname === '/clear') {
-      this.setState({ ...this.state, messages: [], activeSkills: [] });
-      return Response.json({ success: true, data: this.state });
+    if (method === 'POST' && url.pathname === '/research') {
+      const { question } = await request.json() as { question: string };
+      const result = await this.handleResearchQuery(question);
+      return Response.json({ success: true, data: result });
     }
-    if (method === 'POST' && url.pathname === '/model') {
-      const { model } = await request.json();
-      this.setState({ ...this.state, model });
-      this.chatHandler?.updateModel(model);
-      return Response.json({ success: true, data: this.state });
-    }
-    if (method === 'POST' && url.pathname.includes('/skills/') && url.pathname.endsWith('/toggle')) {
-      const skillId = url.pathname.split('/')[2];
-      const newSkills = this.state.skills.map(s => 
-        s.id === skillId ? { ...s, status: s.status === 'Disabled' ? 'Standby' : 'Disabled' } : s
-      );
-      this.setState({ ...this.state, skills: newSkills });
+    if (method === 'POST' && url.pathname === '/system/environment') {
+      const { environment } = await request.json() as { environment: 'Termux' | 'Desktop' };
+      this.setState({ ...this.state, environment });
       return Response.json({ success: true, data: this.state });
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
-  private async handleChatMessage(body: any): Promise<Response> {
-    const { message, stream } = body;
+  private async handleChatMessage(body: { message: string, stream?: boolean, model?: string }): Promise<Response> {
+    const { message } = body;
     if (!message?.trim()) return Response.json({ success: false, error: 'Missing message' }, { status: 400 });
-    const triggeredSkills = this.identifyActiveSkills(message);
+    await this.simulateSelfHealing();
     const userMessage = createMessage('user', message.trim());
-    // Check resilience (Simulate gate)
-    const failure = await this.checkResilience();
-    let systemLogs: Message[] = [];
-    if (failure) {
-      systemLogs.push({
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: `[RESILIENCE] Gate Failure Detected. Initiating Retry ${this.state.resilience.retryCount}/3...`,
-        timestamp: Date.now(),
-        isSystemLog: true
-      });
-    }
+    const triggeredSkills = this.state.skills
+      .filter(s => new RegExp(s.triggerRegex, 'i').test(message))
+      .map(s => s.id);
     this.setState({
       ...this.state,
-      messages: [...this.state.messages, userMessage, ...systemLogs],
+      messages: [...this.state.messages, userMessage],
       activeSkills: triggeredSkills,
       isProcessing: true
     });
-    if (this.state.resilience.circuitBreakerStatus === 'Open') {
-      const breakerMsg = createMessage('assistant', "System Gate is currently LOCKED due to persistent integrity failures. Please check 'Overview' for remediation steps.");
-      this.setState({ ...this.state, messages: [...this.state.messages, breakerMsg], isProcessing: false });
-      return Response.json({ success: true, data: this.state });
-    }
     try {
-      if (stream) {
-        // Simple stream wrapper
-        return Response.json({ success: false, error: "Streaming currently requires update to chatHandler for Phase 2 Context" }, { status: 501 });
-      }
       const response = await this.chatHandler!.processMessage(
         message,
         this.state.messages,
@@ -170,25 +164,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
       );
       const assistantMessage: Message = {
         ...createMessage('assistant', response.content, response.toolCalls),
-        skillInsight: triggeredSkills.length > 0 ? triggeredSkills.join(', ') : undefined
+        skillInsight: triggeredSkills.join(', ')
       };
-      // Adaptive learning update
-      const updatedSkills = this.state.skills.map(s => {
-        if (triggeredSkills.includes(s.id)) {
-          return {
-            ...s,
-            totalActivations: s.totalActivations + 1,
-            successCount: s.successCount + 1,
-            confidence: Math.min(100, s.confidence + 0.5),
-            lastAdjustment: Date.now()
-          };
-        }
-        return s;
-      });
       this.setState({
         ...this.state,
         messages: [...this.state.messages, assistantMessage],
-        skills: updatedSkills,
         isProcessing: false
       });
       return Response.json({ success: true, data: this.state });

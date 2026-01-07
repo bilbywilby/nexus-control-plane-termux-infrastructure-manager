@@ -7,32 +7,24 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Search, Brain, ExternalLink, Download, Clock, Loader2, Database } from 'lucide-react';
 import { toast } from 'sonner';
-import { chatService } from '@/lib/chat';
-import type { ResearchQuery } from '../../../worker/types';
 export function ResearchView() {
   const [query, setQuery] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [history, setHistory] = useState<ResearchQuery[]>([]);
-  useEffect(() => {
-    const fetchHistory = async () => {
-      const res = await chatService.getMessages();
-      if (res.success && res.data?.researchHistory) {
-        setHistory(res.data.researchHistory);
-      }
-    };
-    fetchHistory();
-  }, []);
+  const [history, setHistory] = useState<any[]>([]);
   const handleResearch = async () => {
     if (!query.trim()) return;
     setIsScanning(true);
     try {
-      const res = await chatService.conductResearch(query);
-      if (res.success && res.data) {
-        setHistory(prev => [res.data!, ...prev]);
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: query })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHistory(prev => [data.data, ...prev]);
         setQuery('');
         toast.success("Research synthesis complete.");
-      } else {
-        toast.error(res.error || "Research failed");
       }
     } catch (e) {
       toast.error("Research engine offline.");
@@ -40,14 +32,8 @@ export function ResearchView() {
       setIsScanning(false);
     }
   };
-  const handleSyncToSnapshot = (id: string) => {
-    toast.info(`Syncing research findings from ${id} to current snapshot...`);
-    setTimeout(() => {
-      toast.success("Synthesis committed to infrastructure registry.");
-    }, 1500);
-  };
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-8 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12 space-y-8 animate-fade-in">
       <div className="flex flex-col gap-4">
         <h2 className="text-xl font-display font-bold text-zinc-100 flex items-center gap-2">
           <Brain className="w-5 h-5 text-cyan-500" /> Emerging Research Engine
@@ -60,7 +46,6 @@ export function ResearchView() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Synthesize new infrastructure patterns or troubleshoot architecture..."
               className="bg-zinc-900 border-white/10 pl-10 h-12 text-sm font-mono"
-              onKeyDown={(e) => e.key === 'Enter' && handleResearch()}
             />
           </div>
           <div className="flex items-center gap-4 px-4 bg-zinc-900/50 rounded-lg border border-white/5">
@@ -105,7 +90,7 @@ export function ResearchView() {
                   <div>
                     <h4 className="text-[10px] font-mono text-emerald-500 uppercase mb-1">Synthesis Results</h4>
                     <p className="text-xs text-zinc-400 leading-relaxed font-mono bg-black/30 p-3 rounded border border-white/5">
-                      {item.results || "Synthesis in progress..."}
+                      {item.results || "Synthesis in progress... Analysis of Termux subshell stability required."}
                     </p>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
@@ -117,20 +102,15 @@ export function ResearchView() {
                       <div className="flex flex-col">
                         <span className="text-[9px] font-mono text-zinc-500 uppercase">Sources</span>
                         <div className="flex gap-2">
-                          {item.sources.map((s, i) => (
+                          {item.sources.map((s: string, i: number) => (
                             <span key={i} className="text-[9px] font-mono text-zinc-400 underline cursor-pointer hover:text-cyan-500 flex items-center gap-1">
-                              <ExternalLink className="w-2 h-2" /> {s}
+                              <ExternalLink className="w-2 h-2" /> SRC_{i}
                             </span>
                           ))}
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleSyncToSnapshot(item.id)}
-                      className="h-8 text-[10px] font-mono bg-zinc-900 border-white/10 hover:bg-zinc-800"
-                    >
+                    <Button variant="outline" size="sm" className="h-8 text-[10px] font-mono bg-zinc-900 border-white/10 hover:bg-zinc-800">
                       <Download className="w-3 h-3 mr-2" /> EXPORT_TO_SNAPSHOT
                     </Button>
                   </div>
