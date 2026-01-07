@@ -1,170 +1,118 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitBranch, Github, Play, CheckCircle2, RefreshCw, FileCode, Layers, ArrowRight, ShieldCheck, AlertTriangle, FileJson, Wand2 } from 'lucide-react';
+import { GitBranch, GitMerge, GitCommit, CheckCircle2, AlertCircle, RefreshCw, Layers, Terminal, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { chatService } from '@/lib/chat';
-import type { WorkflowState, InfrastructureFile, ValidationReport } from '../../../worker/types';
-import { cn } from '@/lib/utils';
+const workflowSteps = [
+  { id: 'branch', title: 'Local Feature', status: 'completed', desc: 'Nexus_Core_v2-stable' },
+  { id: 'validation', title: 'QA Validation', status: 'processing', desc: 'Running gate_v3 test suite' },
+  { id: 'merge', title: 'Mainline Sync', status: 'pending', desc: 'Awaiting PR approval' }
+];
 export function WorkflowView() {
-  const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
-  const [infraFiles, setInfraFiles] = useState<InfrastructureFile[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [showJson, setShowJson] = useState(false);
-  useEffect(() => {
-    const fetchData = async () => {
-      const res = await chatService.getMessages();
-      if (res.success && res.data) {
-        setWorkflow(res.data.workflow);
-        setInfraFiles(res.data.infraFiles.filter(f => f.path.startsWith('.github/workflows/') || f.path.startsWith('bin/')));
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, []);
-  const handleRunValidation = async () => {
-    setIsRunning(true);
-    toast.info("Triggering Structured Validation v3...");
-    const res = await chatService.runValidationV3({ fix: false });
-    if (res.success) {
-      toast.success("Validation report generated.");
-    }
-    setTimeout(() => setIsRunning(false), 2000);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const handleSync = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast.success("Git workspace synchronized with remote origin.");
+    }, 2000);
   };
-  const handleAutoFix = async () => {
-    setIsRunning(true);
-    toast.info("Applying --fix to infrastructure...");
-    const res = await chatService.runValidationV3({ fix: true });
-    if (res.success) {
-      toast.success("All fixable checks resolved. Re-run validation to confirm.");
-    }
-    setTimeout(() => setIsRunning(false), 1500);
-  };
-  const report = workflow?.lastValidationReport;
   return (
-    <div className="space-y-8 animate-fade-in p-4">
-      <div className="flex items-center justify-between border-b border-white/5 pb-6">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-500" /> Infrastructure Operations v3
-          </h2>
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">Structured Validation & Build Gates</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex items-center justify-between bg-zinc-900/40 p-6 rounded-2xl border border-white/5">
+        <div className="flex items-center gap-6">
+          <div className="h-16 w-16 rounded-2xl bg-cyan-600/10 border border-cyan-500/20 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+            <GitBranch className="h-8 w-8 text-cyan-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-1">Git Superuser Workflow</h2>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20 font-mono text-[10px]">HEAD: feature/nexus-automation</Badge>
+              <span className="text-[10px] text-zinc-500 font-mono tracking-widest uppercase">Last Commit: 8f2c3d4e</span>
+            </div>
+          </div>
         </div>
         <div className="flex gap-3">
-          <Button
-            onClick={handleRunValidation}
-            disabled={isRunning}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs"
-          >
-            {isRunning ? <RefreshCw className="w-3 h-3 animate-spin mr-2" /> : <Play className="w-3 h-3 mr-2" />}
-            RUN_VALIDATE_V3
+          <Button onClick={handleSync} disabled={isSyncing} variant="outline" className="bg-zinc-900 border-white/10 text-xs font-mono">
+            {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
+            SYNC_REPO
+          </Button>
+          <Button className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs">
+            CREATE_PR
           </Button>
         </div>
       </div>
-      {report && (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="bg-zinc-900/50 border-white/5">
+            <CardHeader className="border-b border-white/5 py-4">
+              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Post-Validation QA Suite</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {[
+                { name: 'gate_syntax_integrity', status: 'pass', latency: '12ms' },
+                { name: 'skill_regex_matching', status: 'pass', latency: '4ms' },
+                { name: 'storage_io_bounds', status: 'fail', latency: '142ms' },
+              ].map((test, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    {test.status === 'pass' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                    <span className="text-xs font-mono text-zinc-300 uppercase">{test.name}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-mono text-zinc-600">{test.latency}</span>
+                    <Badge className={test.status === 'pass' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}>{test.status.toUpperCase()}</Badge>
+                  </div>
+                </div>
+              ))}
+              <Button variant="ghost" className="w-full text-xs font-mono text-zinc-500 hover:text-emerald-500 border border-dashed border-white/5 mt-2">
+                RE-RUN_FULL_QA_SUITE
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900/50 border-white/5 overflow-hidden">
+             <div className="p-4 bg-zinc-900/80 border-b border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Auto-Generated Changelog</span>
+                <span className="text-[10px] text-zinc-600 font-mono">v1.0.42-STABLE</span>
+             </div>
+             <div className="p-6 font-mono text-[11px] text-zinc-500 space-y-2">
+                <div className="flex gap-2"><span className="text-emerald-500">[ADD]</span> Integrated Git Workflow module.</div>
+                <div className="flex gap-2"><span className="text-cyan-500">[FIX]</span> Latency spike in snapshot integrity gate.</div>
+                <div className="flex gap-2"><span className="text-yellow-500">[MOD]</span> Enhanced Skill Matrix discovery regex.</div>
+             </div>
+          </Card>
+        </div>
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono uppercase text-zinc-400">Structured Report: {report.status}</h3>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowJson(!showJson)} className="text-[10px] font-mono h-8">
-                <FileJson className="w-3.5 h-3.5 mr-2" /> {showJson ? 'HIDE_RAW' : 'VIEW_RAW'}
-              </Button>
-              <Button onClick={handleAutoFix} variant="outline" size="sm" className="text-[10px] font-mono h-8 border-cyan-500/20 text-cyan-500">
-                <Wand2 className="w-3.5 h-3.5 mr-2" /> AUTO_FIX
-              </Button>
-            </div>
-          </div>
-          {showJson ? (
-            <Card className="bg-black/80 border-emerald-500/20 p-4 font-mono shadow-[0_0_50px_rgba(16,185,129,0.05)]">
-              <pre className="text-[11px] leading-relaxed overflow-x-auto text-zinc-300">
-                {JSON.stringify(report, null, 2).split('\n').map((line, i) => (
-                  <div key={i} className="hover:bg-white/5 px-2 rounded">
-                    <span className="text-zinc-700 mr-4 w-6 inline-block text-right">{i + 1}</span>
-                    <span className={cn(
-                      line.includes('"Pass"') ? 'text-emerald-400 font-bold' : 
-                      line.includes('"Fail"') ? 'text-red-400 font-bold' : 
-                      line.includes('"Warning"') ? 'text-amber-400' :
-                      line.includes(':') ? 'text-cyan-600' : 'text-zinc-500'
-                    )}>
-                      {line}
-                    </span>
-                  </div>
-                ))}
-              </pre>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {report.checks.map((check) => (
-                <Card key={check.id} className={cn(
-                  "bg-zinc-900/40 border-white/5 p-4 transition-all duration-300",
-                  check.status === 'Fail' && "border-red-500/20 bg-red-500/5",
-                  check.status === 'Warning' && "border-amber-500/20 bg-amber-500/5"
-                )}>
-                  <div className="flex items-start justify-between mb-2">
-                    <Badge variant="outline" className="text-[8px] font-mono border-white/10">{check.category}</Badge>
-                    {check.status === 'Pass' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <AlertTriangle className={cn("w-4 h-4", check.status === 'Fail' ? 'text-red-500' : 'text-amber-500')} />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white mb-1">{check.id}</h4>
-                  <p className="text-[10px] text-zinc-500 leading-tight">{check.message}</p>
-                  {check.fixable && (
-                    <button 
-                      onClick={handleAutoFix}
-                      className="mt-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[8px] px-2 py-0.5 rounded uppercase font-bold hover:bg-cyan-500/20 transition-colors"
-                    >
-                      RECOVERABLE_FIX
-                    </button>
-                  )}
-                </Card>
+          <Card className="bg-zinc-900/50 border-white/5 p-6 h-full">
+            <h3 className="text-xs font-mono uppercase text-zinc-500 mb-6 tracking-widest">Release Pipeline</h3>
+            <div className="space-y-8 relative">
+              <div className="absolute left-4 top-0 bottom-0 w-[1px] bg-zinc-800" />
+              {workflowSteps.map((step, i) => (
+                <div key={i} className="relative flex items-start gap-4 z-10">
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                     step.status === 'completed' ? 'bg-emerald-500 border-emerald-400' :
+                     step.status === 'processing' ? 'bg-zinc-900 border-cyan-500 animate-pulse' :
+                     'bg-zinc-900 border-zinc-800'
+                   }`}>
+                     {step.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-white" /> : <div className="w-2 h-2 rounded-full bg-zinc-700" />}
+                   </div>
+                   <div>
+                      <p className={`text-xs font-bold uppercase ${step.status === 'completed' ? 'text-zinc-100' : 'text-zinc-500'}`}>{step.title}</p>
+                      <p className="text-[10px] text-zinc-600 font-mono">{step.desc}</p>
+                   </div>
+                </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Available Binaries</h3>
-          {infraFiles.map((file) => (
-            <Card key={file.path} className="bg-zinc-900/50 border-white/5 p-5 flex items-center justify-between hover:border-cyan-500/30 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-zinc-800 rounded">
-                  <FileCode className="w-5 h-5 text-cyan-500" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white font-mono">{file.path.split('/').pop()}</h4>
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">PATH: {file.path}</p>
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" className="text-[10px] font-mono h-8 border-none hover:bg-zinc-800">
-                EXEC_SH
-              </Button>
-            </Card>
-          ))}
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Environment Context</h3>
-          <Card className="bg-black/40 border-white/5 p-6 space-y-4 font-mono text-[10px]">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">BASH_VER:</span>
-              <span className="text-emerald-500">{report?.systemContext.bashVersion || '5.2.x'}</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">NODE_VER:</span>
-              <span className="text-emerald-500">{report?.systemContext.nodeVersion || 'v20.x'}</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">ARCH:</span>
-              <span className="text-cyan-500">{report?.systemContext.arch || 'aarch64'}</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">GATE_STATUS:</span>
-              <span className="text-emerald-500 font-bold">NOMINAL</span>
+            <div className="mt-12 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+               <div className="flex items-center gap-2 mb-2">
+                  <Terminal className="w-3 h-3 text-emerald-500" />
+                  <span className="text-[10px] font-mono text-emerald-500 uppercase">Release Summary</span>
+               </div>
+               <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
+                  Infrastructure meets 94.2% stability criteria. Recommended for Workers deployment.
+               </p>
             </div>
           </Card>
         </div>
