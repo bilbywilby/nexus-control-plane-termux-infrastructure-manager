@@ -28,17 +28,20 @@ export function WorkflowView() {
   const handleRunValidation = async () => {
     setIsRunning(true);
     toast.info("Triggering Structured Validation v3...");
-    const res = await chatService.runValidationV3();
+    const res = await chatService.runValidationV3({ fix: false });
     if (res.success) {
       toast.success("Validation report generated.");
     }
     setTimeout(() => setIsRunning(false), 2000);
   };
-  const handleAutoFix = () => {
+  const handleAutoFix = async () => {
+    setIsRunning(true);
     toast.info("Applying --fix to infrastructure...");
-    setTimeout(() => {
+    const res = await chatService.runValidationV3({ fix: true });
+    if (res.success) {
       toast.success("All fixable checks resolved. Re-run validation to confirm.");
-    }, 1500);
+    }
+    setTimeout(() => setIsRunning(false), 1500);
   };
   const report = workflow?.lastValidationReport;
   return (
@@ -51,8 +54,8 @@ export function WorkflowView() {
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">Structured Validation & Build Gates</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            onClick={handleRunValidation} 
+          <Button
+            onClick={handleRunValidation}
             disabled={isRunning}
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs"
           >
@@ -75,12 +78,17 @@ export function WorkflowView() {
             </div>
           </div>
           {showJson ? (
-            <Card className="bg-black/80 border-emerald-500/20 p-4 font-mono">
-              <pre className="text-[11px] leading-relaxed overflow-x-auto">
+            <Card className="bg-black/80 border-emerald-500/20 p-4 font-mono shadow-[0_0_50px_rgba(16,185,129,0.05)]">
+              <pre className="text-[11px] leading-relaxed overflow-x-auto text-zinc-300">
                 {JSON.stringify(report, null, 2).split('\n').map((line, i) => (
-                  <div key={i}>
-                    <span className="text-zinc-700 mr-4">{i + 1}</span>
-                    <span className={line.includes('"Pass"') ? 'text-emerald-400' : line.includes('"Fail"') ? 'text-red-400' : 'text-zinc-400'}>
+                  <div key={i} className="hover:bg-white/5 px-2 rounded">
+                    <span className="text-zinc-700 mr-4 w-6 inline-block text-right">{i + 1}</span>
+                    <span className={cn(
+                      line.includes('"Pass"') ? 'text-emerald-400 font-bold' : 
+                      line.includes('"Fail"') ? 'text-red-400 font-bold' : 
+                      line.includes('"Warning"') ? 'text-amber-400' :
+                      line.includes(':') ? 'text-cyan-600' : 'text-zinc-500'
+                    )}>
                       {line}
                     </span>
                   </div>
@@ -91,17 +99,28 @@ export function WorkflowView() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {report.checks.map((check) => (
                 <Card key={check.id} className={cn(
-                  "bg-zinc-900/40 border-white/5 p-4",
+                  "bg-zinc-900/40 border-white/5 p-4 transition-all duration-300",
                   check.status === 'Fail' && "border-red-500/20 bg-red-500/5",
                   check.status === 'Warning' && "border-amber-500/20 bg-amber-500/5"
                 )}>
                   <div className="flex items-start justify-between mb-2">
-                    <Badge variant="outline" className="text-[8px] font-mono">{check.category}</Badge>
-                    {check.status === 'Pass' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                    <Badge variant="outline" className="text-[8px] font-mono border-white/10">{check.category}</Badge>
+                    {check.status === 'Pass' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertTriangle className={cn("w-4 h-4", check.status === 'Fail' ? 'text-red-500' : 'text-amber-500')} />
+                    )}
                   </div>
                   <h4 className="text-xs font-bold text-white mb-1">{check.id}</h4>
                   <p className="text-[10px] text-zinc-500 leading-tight">{check.message}</p>
-                  {check.fixable && <Badge className="mt-2 bg-cyan-500/20 text-cyan-400 border-none text-[8px]">FIXABLE</Badge>}
+                  {check.fixable && (
+                    <button 
+                      onClick={handleAutoFix}
+                      className="mt-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[8px] px-2 py-0.5 rounded uppercase font-bold hover:bg-cyan-500/20 transition-colors"
+                    >
+                      RECOVERABLE_FIX
+                    </button>
+                  )}
                 </Card>
               ))}
             </div>

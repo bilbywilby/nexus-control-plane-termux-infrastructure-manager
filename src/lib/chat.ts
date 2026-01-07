@@ -49,11 +49,12 @@ class ChatService {
   async revaluateIntent(query: string): Promise<ChatResponse> {
     return this.executeCommand(`/evaluate-intent ${query}`);
   }
-  async runValidationV3(): Promise<{ success: boolean; data?: ValidationReport; error?: string }> {
+  async runValidationV3(options?: { fix?: boolean }): Promise<{ success: boolean; data?: ValidationReport; error?: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/validate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fix: options?.fix ?? false })
       });
       return await response.json();
     } catch (error) {
