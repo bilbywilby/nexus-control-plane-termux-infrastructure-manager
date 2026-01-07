@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OverviewView } from '@/components/dashboard/OverviewView';
 import { SnapshotsView } from '@/components/dashboard/SnapshotsView';
@@ -9,7 +9,6 @@ import { AuditLogView } from '@/components/dashboard/AuditLogView';
 import { ReportingView } from '@/components/dashboard/ReportingView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Progress } from '@/components/ui/progress';
 import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Brain, WifiOff, ScrollText, FileBarChart } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNetwork } from '@/hooks/use-network';
@@ -18,6 +17,9 @@ export function HomePage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isTermuxMode, setIsTermuxMode] = useState(true);
   const { isOnline } = useNetwork();
+  // Memoize static strings to prevent unnecessary re-renders in deep components
+  const nodeLabel = isTermuxMode ? 'TERMUX_ALPHA_V2' : 'DESKTOP_NODE_01';
+  const roadmapProgress = 75;
   return (
     <AppLayout className={cn("bg-zinc-950 text-zinc-100 transition-all duration-700", !isOnline && "grayscale-[0.3]")}>
       {!isOnline && (
@@ -39,11 +41,16 @@ export function HomePage() {
               <h1 className="text-3xl font-display font-bold tracking-tight">Nexus Control Plane</h1>
               <div className="flex items-center gap-4 mt-2">
                 <p className="text-muted-foreground text-[11px] font-mono">
-                  Node ID: <span className="text-cyan-400 font-bold">{isTermuxMode ? 'TERMUX_ALPHA_V2' : 'DESKTOP_NODE_01'}</span>
+                  Node ID: <span className="text-cyan-400 font-bold">{nodeLabel}</span>
                 </p>
                 <div className="flex items-center gap-2 w-32">
-                  <span className="text-[9px] font-mono text-zinc-500 uppercase">Roadmap: 75%</span>
-                  <Progress value={75} className="h-1 bg-zinc-900" />
+                  <span className="text-[9px] font-mono text-zinc-500 uppercase">Roadmap: {roadmapProgress}%</span>
+                  <div className="h-1 flex-1 bg-zinc-900 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-500 transition-all duration-1000" 
+                      style={{ width: `${roadmapProgress}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -87,13 +94,15 @@ export function HomePage() {
                 </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="overview" className="mt-0 outline-none"><OverviewView /></TabsContent>
-            <TabsContent value="snapshots" className="mt-0 outline-none"><SnapshotsView /></TabsContent>
-            <TabsContent value="skills" className="mt-0 outline-none"><SkillsView /></TabsContent>
-            <TabsContent value="audit" className="mt-0 outline-none"><AuditLogView /></TabsContent>
-            <TabsContent value="reports" className="mt-0 outline-none"><ReportingView /></TabsContent>
-            <TabsContent value="research" className="mt-0 outline-none"><ResearchView /></TabsContent>
-            <TabsContent value="logs" className="mt-0 outline-none"><TerminalWidget /></TabsContent>
+            <div className="mt-0 outline-none focus-visible:ring-0">
+              {activeTab === 'overview' && <OverviewView />}
+              {activeTab === 'snapshots' && <SnapshotsView />}
+              {activeTab === 'skills' && <SkillsView />}
+              {activeTab === 'audit' && <AuditLogView />}
+              {activeTab === 'reports' && <ReportingView />}
+              {activeTab === 'research' && <ResearchView />}
+              {activeTab === 'logs' && <TerminalWidget />}
+            </div>
           </Tabs>
         </div>
       </div>

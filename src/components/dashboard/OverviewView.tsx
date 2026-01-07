@@ -19,14 +19,14 @@ export function OverviewView() {
     { id: 'R4', title: 'Autonomic Healing', status: 'upcoming' }
   ];
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12 space-y-8 animate-fade-in">
+    <div className="max-w-7xl mx-auto py-4 space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-xl font-display font-bold text-zinc-100 flex items-center gap-2">
           <Activity className="w-5 h-5 text-emerald-500" /> Infrastructure Health
         </h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {roadmap.map((stage, idx) => (
-            <div key={stage.id} className="flex items-center gap-2">
+            <div key={stage.id} className="flex items-center gap-2 shrink-0">
               <div className={cn(
                 "flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-mono border",
                 stage.status === 'completed' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
@@ -113,7 +113,7 @@ export function OverviewView() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" stroke="#52525b" fontSize={9} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', fontSize: '10px' }}
                   itemStyle={{ fontSize: '9px', fontWeight: 'bold' }}
                 />
