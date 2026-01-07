@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { chatService } from '@/lib/chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Terminal, Send, Trash2, Zap, WifiOff, Clock } from 'lucide-react';
-import type { Message } from '../../../worker/types';
+import type { Message, LogLevel } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 import { useNetwork } from '@/hooks/use-network';
 export function TerminalWidget() {
@@ -25,7 +26,9 @@ export function TerminalWidget() {
     if (cached) {
       try {
         setMessages(JSON.parse(cached));
-      } catch (e) { console.error("Cache fail", e); }
+      } catch (e) {
+        console.error("Cache fail", e);
+      }
     }
     loadMessages();
     const interval = setInterval(loadMessages, 3000);
@@ -63,16 +66,27 @@ export function TerminalWidget() {
     localStorage.removeItem('nexus_terminal_cache');
     setActiveContext(null);
   };
-  const getLogLevelStyle = (level?: string) => {
+  const getLogLevelStyle = (level?: LogLevel) => {
+    if (!level) return 'text-zinc-400';
     switch (level) {
-      case 'ERROR': case 'FATAL': return 'text-red-500';
-      case 'WARN': return 'text-amber-500';
-      case 'INFO': case 'GATE_PASS': return 'text-emerald-500';
-      case 'RECOVERY': return 'text-cyan-500';
-      case 'GIT_COMMIT': return 'text-cyan-400';
-      case 'DEPLOYMENT_START': return 'text-purple-400';
-      case 'DEBUG': return 'text-zinc-600';
-      default: return 'text-zinc-400';
+      case 'ERROR':
+      case 'FATAL':
+        return 'text-red-500';
+      case 'WARN':
+        return 'text-amber-500';
+      case 'INFO':
+      case 'GATE_PASS':
+        return 'text-emerald-500';
+      case 'RECOVERY':
+        return 'text-cyan-500';
+      case 'GIT_COMMIT':
+        return 'text-cyan-400';
+      case 'DEPLOYMENT_START':
+        return 'text-purple-400';
+      case 'DEBUG':
+        return 'text-zinc-600';
+      default:
+        return 'text-zinc-400';
     }
   };
   return (
@@ -81,27 +95,40 @@ export function TerminalWidget() {
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-emerald-500" />
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Nexus_Shell_v2.0</span>
-          {!isOnline && <Badge className="bg-red-500/20 text-red-500 border-none text-[8px]">OFFLINE_MODE</Badge>}
+          {!isOnline && (
+            <Badge variant="outline" className="bg-red-500/20 text-red-500 border-red-500/30 text-[8px] h-4 ml-2">
+              OFFLINE_MODE
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-4">
-           {activeContext && (
-             <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-bold">
-               <Zap className="w-3 h-3" /> CONTEXT: {activeContext}
-             </div>
-           )}
-          <Button variant="ghost" size="icon" onClick={handleClear} className="h-6 w-6 text-zinc-500 hover:text-destructive">
+          {activeContext && (
+            <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-bold">
+              <Zap className="w-3 h-3" /> CONTEXT: {activeContext}
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClear}
+            className="h-6 w-6 text-zinc-500 hover:text-destructive"
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#020202]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#020202] scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent">
         {messages.map((m) => (
           <div key={m.id} className="flex gap-3 text-[11px] leading-relaxed group">
-            <span className="text-zinc-700 shrink-0">[{new Date(m.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+            <span className="text-zinc-700 shrink-0">
+              [{new Date(m.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
+            </span>
             <div className="flex-1 min-w-0">
               {m.isSystemLog ? (
                 <div className="flex gap-2">
-                  <span className={cn("font-bold shrink-0", getLogLevelStyle(m.level))}>[{m.level || 'INFO'}]</span>
+                  <span className={cn("font-bold shrink-0", getLogLevelStyle(m.level))}>
+                    [{m.level || 'INFO'}]
+                  </span>
                   <span className="text-zinc-400">{m.content}</span>
                 </div>
               ) : (
@@ -132,7 +159,7 @@ export function TerminalWidget() {
             placeholder={isOnline ? "Enter system command..." : "Offline - Commands will queue..."}
             className="flex-1 bg-transparent border-none focus-visible:ring-0 text-zinc-300 text-[11px] h-9"
           />
-          <Button size="icon" variant="ghost" onClick={handleSend} disabled={isLoading} className="text-emerald-500 h-8 w-8">
+          <Button size="icon" variant="ghost" onClick={handleSend} disabled={isLoading} className="text-emerald-500 h-8 w-8 hover:bg-emerald-500/10">
             <Send className="h-3.5 w-3.5" />
           </Button>
         </div>
