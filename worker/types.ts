@@ -12,6 +12,23 @@ export interface ErrorResult {
   error: string;
 }
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION';
+export interface ValidationCheck {
+  id: string;
+  status: 'Pass' | 'Fail' | 'Warning';
+  message: string;
+  fixable: boolean;
+  category: 'Tool' | 'Directory' | 'File' | 'Security';
+}
+export interface ValidationReport {
+  status: 'Pass' | 'Fail';
+  timestamp: number;
+  checks: ValidationCheck[];
+  systemContext: {
+    bashVersion: string;
+    nodeVersion: string;
+    arch: string;
+  };
+}
 export interface InfrastructureFile {
   path: string;
   content: string;
@@ -34,7 +51,7 @@ export interface Message {
   isSystemLog?: boolean;
   isQueued?: boolean;
   level?: LogLevel;
-  intentMatch?: string;
+  intentMatch?: string; // Can be stringified JSON for v3
 }
 export interface ToolCall {
   id: string;
@@ -52,6 +69,7 @@ export interface WorkflowState {
   lastGithubPush?: number;
   lastRollback?: { timestamp: number; snapshotId: string };
   executionStep?: 'Idle' | 'CheckingVars' | 'ValidatingBuild' | 'AutoFixing' | 'Snapshotting' | 'Pushing';
+  lastValidationReport?: ValidationReport;
 }
 export interface PluginItem {
   id: string;
@@ -89,6 +107,8 @@ export interface Skill {
     pre?: string;
     post?: string;
   };
+  weight?: number;
+  rank?: number;
 }
 export interface AuditLog {
   id: string;
