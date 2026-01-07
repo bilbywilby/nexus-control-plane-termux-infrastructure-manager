@@ -1,244 +1,200 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState } from './types';
+import type { ChatState, Skill, Message } from './types';
 import { ChatHandler } from './chat';
 import { API_RESPONSES } from './config';
 import { createMessage, createStreamResponse, createEncoder } from './utils';
-
-/**
- * ChatAgent - Main agent class using Cloudflare Agents SDK
- * 
- * This class extends the Agents SDK Agent class and handles all chat operations.
- */
 export class ChatAgent extends Agent<Env, ChatState> {
   private chatHandler?: ChatHandler;
-
-  // Initial state for new chat sessions
   initialState: ChatState = {
     messages: [],
     sessionId: crypto.randomUUID(),
     isProcessing: false,
-    model: 'google-ai-studio/gemini-2.5-flash'
+    model: 'google-ai-studio/gemini-2.5-flash',
+    activeSkills: [],
+    skills: [
+      {
+        id: 'python-dev',
+        name: 'python-dev',
+        icon: 'Cpu',
+        triggerRegex: '.*\\.py$',
+        confidence: 85,
+        successCount: 120,
+        totalActivations: 140,
+        status: 'Active',
+        lastAdjustment: Date.now(),
+        description: 'Lints, tests, and builds Python modules.'
+      },
+      {
+        id: 'security-audit',
+        name: 'security-audit',
+        icon: 'Shield',
+        triggerRegex: 'auth|password|secret|key',
+        confidence: 92,
+        successCount: 45,
+        totalActivations: 48,
+        status: 'Standby',
+        lastAdjustment: Date.now(),
+        description: 'Automated vulnerability scanning for source code.'
+      },
+      {
+        id: 'web-deploy',
+        name: 'web-deploy',
+        icon: 'Globe',
+        triggerRegex: 'deploy|publish|worker',
+        confidence: 78,
+        successCount: 89,
+        totalActivations: 112,
+        status: 'Active',
+        lastAdjustment: Date.now(),
+        description: 'Cloudflare Workers and Pages synchronization.'
+      }
+    ],
+    resilience: {
+      gatePassRate: 98.5,
+      retryCount: 0,
+      circuitBreakerStatus: 'Closed',
+      avgLatency: 24,
+      consecutiveFailures: 0
+    }
   };
-
-  /**
-   * Initialize chat handler when agent starts
-   */
   async onStart(): Promise<void> {
     this.chatHandler = new ChatHandler(
-      this.env.CF_AI_BASE_URL ,
+      this.env.CF_AI_BASE_URL,
       this.env.CF_AI_API_KEY,
       this.state.model
     );
-    
-    console.log(`ChatAgent ${this.name} initialized with session ${this.state.sessionId}`);
   }
-
-  /**
-   * Handle incoming requests - clean routing with error handling
-   */
+  private async checkResilience() {
+    const stats = { ...this.state.resilience };
+    // Simulated gate failure check (2% failure rate simulation)
+    const failure = Math.random() < 0.02;
+    if (failure) {
+      stats.consecutiveFailures += 1;
+      stats.retryCount += 1;
+      stats.lastFailureTime = Date.now();
+      if (stats.consecutiveFailures >= 3) {
+        stats.circuitBreakerStatus = 'Open';
+      }
+    } else {
+      stats.consecutiveFailures = 0;
+      if (stats.circuitBreakerStatus === 'Open') {
+        stats.circuitBreakerStatus = 'Half-Open';
+      } else if (stats.circuitBreakerStatus === 'Half-Open') {
+        stats.circuitBreakerStatus = 'Closed';
+      }
+    }
+    this.setState({ ...this.state, resilience: stats });
+    return failure;
+  }
+  private identifyActiveSkills(message: string): string[] {
+    return this.state.skills
+      .filter(skill => {
+        try {
+          const regex = new RegExp(skill.triggerRegex, 'i');
+          return regex.test(message);
+        } catch {
+          return false;
+        }
+      })
+      .map(s => s.id);
+  }
   async onRequest(request: Request): Promise<Response> {
-    try {
-      const url = new URL(request.url);
-      const method = request.method;
-
-      // Route to appropriate handler
-      if (method === 'GET' && url.pathname === '/messages') {
-        return this.handleGetMessages();
-      }
-      
-      if (method === 'POST' && url.pathname === '/chat') {
-        return this.handleChatMessage(await request.json());
-      }
-      
-      if (method === 'DELETE' && url.pathname === '/clear') {
-        return this.handleClearMessages();
-      }
-
-      if (method === 'POST' && url.pathname === '/model') {
-        return this.handleModelUpdate(await request.json());
-      }
-      
-      return Response.json({ 
-        success: false, 
-        error: API_RESPONSES.NOT_FOUND 
-      }, { status: 404 });
-
-    } catch (error) {
-      console.error('Request handling error:', error);
-      return Response.json({ 
-        success: false, 
-        error: API_RESPONSES.INTERNAL_ERROR 
-      }, { status: 500 });
+    const url = new URL(request.url);
+    const method = request.method;
+    if (method === 'GET' && url.pathname === '/messages') {
+      return Response.json({ success: true, data: this.state });
     }
-  }
-
-  /**
-   * Get current conversation messages
-   */
-  private handleGetMessages(): Response {
-    return Response.json({ 
-      success: true, 
-      data: this.state 
-    });
-  }
-
-  /**
-   * Process new chat message
-   */
-  private async handleChatMessage(body: { message: string; model?: string; stream?: boolean }): Promise<Response> {
-    const { message, model, stream } = body;
-
-    // Validate input
-    if (!message?.trim()) {
-      return Response.json({ 
-        success: false, 
-        error: API_RESPONSES.MISSING_MESSAGE 
-      }, { status: 400 });
+    if (method === 'POST' && url.pathname === '/chat') {
+      return this.handleChatMessage(await request.json());
     }
-
-    // Update model if provided
-    if (model && model !== this.state.model) {
+    if (method === 'DELETE' && url.pathname === '/clear') {
+      this.setState({ ...this.state, messages: [], activeSkills: [] });
+      return Response.json({ success: true, data: this.state });
+    }
+    if (method === 'POST' && url.pathname === '/model') {
+      const { model } = await request.json();
       this.setState({ ...this.state, model });
       this.chatHandler?.updateModel(model);
+      return Response.json({ success: true, data: this.state });
     }
-    
+    if (method === 'POST' && url.pathname.includes('/skills/') && url.pathname.endsWith('/toggle')) {
+      const skillId = url.pathname.split('/')[2];
+      const newSkills = this.state.skills.map(s => 
+        s.id === skillId ? { ...s, status: s.status === 'Disabled' ? 'Standby' : 'Disabled' } : s
+      );
+      this.setState({ ...this.state, skills: newSkills });
+      return Response.json({ success: true, data: this.state });
+    }
+    return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
+  }
+  private async handleChatMessage(body: any): Promise<Response> {
+    const { message, stream } = body;
+    if (!message?.trim()) return Response.json({ success: false, error: 'Missing message' }, { status: 400 });
+    const triggeredSkills = this.identifyActiveSkills(message);
     const userMessage = createMessage('user', message.trim());
-    
+    // Check resilience (Simulate gate)
+    const failure = await this.checkResilience();
+    let systemLogs: Message[] = [];
+    if (failure) {
+      systemLogs.push({
+        id: crypto.randomUUID(),
+        role: 'system',
+        content: `[RESILIENCE] Gate Failure Detected. Initiating Retry ${this.state.resilience.retryCount}/3...`,
+        timestamp: Date.now(),
+        isSystemLog: true
+      });
+    }
     this.setState({
       ...this.state,
-      messages: [...this.state.messages, userMessage],
+      messages: [...this.state.messages, userMessage, ...systemLogs],
+      activeSkills: triggeredSkills,
       isProcessing: true
     });
-    
+    if (this.state.resilience.circuitBreakerStatus === 'Open') {
+      const breakerMsg = createMessage('assistant', "System Gate is currently LOCKED due to persistent integrity failures. Please check 'Overview' for remediation steps.");
+      this.setState({ ...this.state, messages: [...this.state.messages, breakerMsg], isProcessing: false });
+      return Response.json({ success: true, data: this.state });
+    }
     try {
-      // Process message through chat handler
-      if (!this.chatHandler) {
-        throw new Error('Chat handler not initialized');
-      }
-
       if (stream) {
-        const { readable, writable } = new TransformStream();
-        const writer = writable.getWriter();
-        const encoder = createEncoder();
-        
-        // Start processing in background
-        (async () => {
-          try {
-            this.setState({ ...this.state, streamingMessage: '' });
-            
-            const response = await this.chatHandler!.processMessage(
-              message, 
-              this.state.messages,
-              (chunk: string) => {
-                try {
-                  this.setState({ 
-                    ...this.state, 
-                    streamingMessage: (this.state.streamingMessage || '') + chunk 
-                  });
-                  writer.write(encoder.encode(chunk));
-                } catch (writeError) {
-                  console.error('Write error:', writeError);
-                }
-              }
-            );
-
-            const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
-            
-            // Update state with final response
-            this.setState({
-              ...this.state,
-              messages: [...this.state.messages, assistantMessage],
-              isProcessing: false,
-              streamingMessage: ''
-            });
-            
-          } catch (error) {
-            console.error('Streaming error:', error);
-            
-            // Write error to stream
-            try {
-              const errorMessage = 'Sorry, I encountered an error processing your request.';
-              writer.write(encoder.encode(errorMessage));
-              
-              const errorMsg = createMessage('assistant', errorMessage);
-              this.setState({
-                ...this.state,
-                messages: [...this.state.messages, errorMsg],
-                isProcessing: false,
-                streamingMessage: ''
-              });
-            } catch (writeError) {
-              console.error('Error writing error message:', writeError);
-            }
-          } finally {
-            try {
-              writer.close();
-            } catch (closeError) {
-              console.error('Error closing writer:', closeError);
-            }
-          }
-        })();
-
-        return createStreamResponse(readable);
+        // Simple stream wrapper
+        return Response.json({ success: false, error: "Streaming currently requires update to chatHandler for Phase 2 Context" }, { status: 501 });
       }
-
-      // Non-streaming response
-      const response = await this.chatHandler.processMessage(
-        message, 
-        this.state.messages
+      const response = await this.chatHandler!.processMessage(
+        message,
+        this.state.messages,
+        undefined,
+        triggeredSkills,
+        this.state.skills
       );
-
-      const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
-      
-      // Update state with response
+      const assistantMessage: Message = {
+        ...createMessage('assistant', response.content, response.toolCalls),
+        skillInsight: triggeredSkills.length > 0 ? triggeredSkills.join(', ') : undefined
+      };
+      // Adaptive learning update
+      const updatedSkills = this.state.skills.map(s => {
+        if (triggeredSkills.includes(s.id)) {
+          return {
+            ...s,
+            totalActivations: s.totalActivations + 1,
+            successCount: s.successCount + 1,
+            confidence: Math.min(100, s.confidence + 0.5),
+            lastAdjustment: Date.now()
+          };
+        }
+        return s;
+      });
       this.setState({
         ...this.state,
         messages: [...this.state.messages, assistantMessage],
+        skills: updatedSkills,
         isProcessing: false
       });
-      
-      return Response.json({ 
-        success: true, 
-        data: this.state 
-      });
-
+      return Response.json({ success: true, data: this.state });
     } catch (error) {
-      console.error('Chat processing error:', error);
       this.setState({ ...this.state, isProcessing: false });
-      return Response.json({ 
-        success: false, 
-        error: API_RESPONSES.PROCESSING_ERROR 
-      }, { status: 500 });
+      return Response.json({ success: false, error: 'Processing error' }, { status: 500 });
     }
-  }
-
-  /**
-   * Clear conversation history
-   */
-  private handleClearMessages(): Response {
-    this.setState({ 
-      ...this.state, 
-      messages: [] 
-    });
-    return Response.json({ 
-      success: true, 
-      data: this.state 
-    });
-  }
-
-  /**
-   * Update selected AI model
-   */
-  private handleModelUpdate(body: { model: string }): Response {
-    const { model } = body;
-    
-    this.setState({ ...this.state, model });
-    this.chatHandler?.updateModel(model);
-    
-    return Response.json({ 
-      success: true, 
-      data: this.state 
-    });
   }
 }
