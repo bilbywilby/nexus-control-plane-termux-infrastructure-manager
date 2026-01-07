@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message, SkillStatus, ResearchQuery } from './types';
+import type { ChatState, Skill, Message, SkillStatus, ResearchQuery, AuditLog } from './types';
 import { ChatHandler } from './chat';
 import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
@@ -35,18 +35,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
         status: 'Standby' as SkillStatus,
         lastAdjustment: Date.now(),
         description: 'Automated vulnerability scanning for source code.'
-      },
-      {
-        id: 'web-deploy',
-        name: 'web-deploy',
-        icon: 'Globe',
-        triggerRegex: 'deploy|publish|worker',
-        confidence: 78,
-        successCount: 89,
-        totalActivations: 112,
-        status: 'Active' as SkillStatus,
-        lastAdjustment: Date.now(),
-        description: 'Cloudflare Workers and Pages synchronization.'
       }
     ],
     resilience: {
@@ -64,6 +52,14 @@ export class ChatAgent extends Agent<Env, ChatState> {
       redundantSnapshotsCount: 3
     },
     researchHistory: [],
+    auditLogs: [],
+    reporting: {
+      totalOperations: 14282,
+      avgLatency: 22,
+      securityScore: 99.9,
+      uptimeTrend: [99, 98, 99.9, 99.5, 100],
+      failureCategories: { 'GATE_TIMEOUT': 12, 'SKILL_LOAD_FAIL': 3 }
+    },
     environment: 'Termux'
   };
   async onStart(): Promise<void> {
@@ -73,50 +69,35 @@ export class ChatAgent extends Agent<Env, ChatState> {
       this.state.model
     );
   }
+  private pushAuditLog(level: AuditLog['level'], message: string, metadata: Record<string, any> = {}) {
+    const log: AuditLog = {
+      id: `EVT-${Math.floor(Math.random() * 10000)}`,
+      level,
+      message,
+      timestamp: new Date().toISOString(),
+      metadata
+    };
+    this.setState({
+      ...this.state,
+      auditLogs: [log, ...this.state.auditLogs].slice(0, 100)
+    });
+  }
   private async simulateSelfHealing() {
-    const stats = { ...this.state.resilience };
     const ft = { ...this.state.faultTolerance };
+    const stats = { ...this.state.resilience };
     if (stats.consecutiveFailures > 0) {
       ft.primaryPathActive = false;
       ft.secondaryPathActive = true;
-      ft.recoverySuccessRate = Math.min(100, ft.recoverySuccessRate + 0.1);
+      this.pushAuditLog('Recovery', 'Failover to secondary path triggered by consecutive failures', { failures: stats.consecutiveFailures });
       const log: Message = {
         id: crypto.randomUUID(),
         role: 'system',
-        content: `[HEAL] Primary path failed. Failing over to secondary validation path...`,
+        content: `[HEAL] Primary validation failed. Failing over...`,
         timestamp: Date.now(),
         isSystemLog: true
       };
-      this.setState({ ...this.state, resilience: stats, faultTolerance: ft, messages: [...this.state.messages, log] });
-    } else {
-      ft.primaryPathActive = true;
-      ft.secondaryPathActive = false;
-      this.setState({ ...this.state, faultTolerance: ft });
+      this.setState({ ...this.state, faultTolerance: ft, messages: [...this.state.messages, log] });
     }
-  }
-  private async handleResearchQuery(question: string): Promise<ResearchQuery> {
-    const id = `RES-${Math.floor(Math.random() * 9000) + 1000}`;
-    const query: ResearchQuery = {
-      id,
-      question,
-      status: 'Analyzing',
-      confidence: 0,
-      sources: [],
-      timestamp: Date.now()
-    };
-    this.setState({ ...this.state, researchHistory: [query, ...this.state.researchHistory] });
-    // Simulate multi-step reasoning
-    const results = `Synthesis complete for: ${question}. Detected patterns in Termux/Android architecture suggest optimized resource allocation is possible via secondary validation gates.`;
-    const resolved: ResearchQuery = {
-      ...query,
-      status: 'Resolved',
-      confidence: 94,
-      results,
-      sources: ['https://termux.dev/wiki', 'nexus-core-logs-v2']
-    };
-    const updatedHistory = this.state.researchHistory.map(q => q.id === id ? resolved : q);
-    this.setState({ ...this.state, researchHistory: updatedHistory });
-    return resolved;
   }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -124,30 +105,25 @@ export class ChatAgent extends Agent<Env, ChatState> {
     if (method === 'GET' && url.pathname === '/messages') {
       return Response.json({ success: true, data: this.state });
     }
+    if (method === 'GET' && url.pathname === '/audit') {
+      return Response.json({ success: true, data: this.state.auditLogs });
+    }
     if (method === 'POST' && url.pathname === '/chat') {
-      const body = await request.json() as { message: string, stream?: boolean, model?: string };
+      const body = await request.json() as { message: string, model?: string };
       return this.handleChatMessage(body);
-    }
-    if (method === 'POST' && url.pathname === '/research') {
-      const { question } = await request.json() as { question: string };
-      const result = await this.handleResearchQuery(question);
-      return Response.json({ success: true, data: result });
-    }
-    if (method === 'POST' && url.pathname === '/system/environment') {
-      const { environment } = await request.json() as { environment: 'Termux' | 'Desktop' };
-      this.setState({ ...this.state, environment });
-      return Response.json({ success: true, data: this.state });
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
-  private async handleChatMessage(body: { message: string, stream?: boolean, model?: string }): Promise<Response> {
+  private async handleChatMessage(body: { message: string, model?: string }): Promise<Response> {
     const { message } = body;
-    if (!message?.trim()) return Response.json({ success: false, error: 'Missing message' }, { status: 400 });
     await this.simulateSelfHealing();
-    const userMessage = createMessage('user', message.trim());
     const triggeredSkills = this.state.skills
       .filter(s => new RegExp(s.triggerRegex, 'i').test(message))
       .map(s => s.id);
+    if (triggeredSkills.length > 0) {
+      this.pushAuditLog('Skill_Activate', `Skills triggered: ${triggeredSkills.join(', ')}`, { trigger: message });
+    }
+    const userMessage = createMessage('user', message);
     this.setState({
       ...this.state,
       messages: [...this.state.messages, userMessage],

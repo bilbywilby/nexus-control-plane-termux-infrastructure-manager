@@ -1,13 +1,15 @@
 import React from "react";
-import { 
-  LayoutDashboard, 
-  Database, 
-  Cpu, 
-  Terminal, 
-  Settings, 
-  Activity, 
-  ShieldAlert,
-  Server
+import {
+  LayoutDashboard,
+  Database,
+  Cpu,
+  Terminal,
+  Settings,
+  Activity,
+  Server,
+  ScrollText,
+  FileBarChart,
+  LifeBuoy
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,30 +40,21 @@ export function AppSidebar(): JSX.Element {
         <SidebarGroup>
           <SidebarGroupLabel className="text-zinc-500 text-[10px] uppercase tracking-widest font-mono mb-2">Operations</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="hover:bg-zinc-900 transition-colors py-6">
-                <LayoutDashboard className="h-5 w-5 mr-2 text-zinc-400" />
-                <span className="font-mono text-xs uppercase">Dashboard</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="hover:bg-zinc-900 transition-colors py-6">
-                <Database className="h-5 w-5 mr-2 text-zinc-400" />
-                <span className="font-mono text-xs uppercase">Registry</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="hover:bg-zinc-900 transition-colors py-6">
-                <Cpu className="h-5 w-5 mr-2 text-zinc-400" />
-                <span className="font-mono text-xs uppercase">Skill Matrix</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="hover:bg-zinc-900 transition-colors py-6">
-                <Terminal className="h-5 w-5 mr-2 text-zinc-400" />
-                <span className="font-mono text-xs uppercase">Shell Console</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {[
+              { label: 'Dashboard', icon: LayoutDashboard },
+              { label: 'Registry', icon: Database },
+              { label: 'Skill Matrix', icon: Cpu },
+              { label: 'Audit Trail', icon: ScrollText },
+              { label: 'Analytics', icon: FileBarChart },
+              { label: 'Shell Console', icon: Terminal },
+            ].map((item) => (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton className="hover:bg-zinc-900 transition-colors py-6">
+                  <item.icon className="h-5 w-5 mr-2 text-zinc-400" />
+                  <span className="font-mono text-xs uppercase">{item.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
         <SidebarGroup className="mt-4">
@@ -72,13 +65,13 @@ export function AppSidebar(): JSX.Element {
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-zinc-400">DISK: 4.2GB / 10GB</span>
                   <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 w-[42%]" />
+                    <div className="h-full bg-emerald-500 w-[42%] transition-all duration-500" />
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-zinc-400">LOAD: 12%</span>
                   <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-cyan-500 w-[12%]" />
+                    <div className="h-full bg-cyan-500 w-[12%] transition-all duration-500" />
                   </div>
                 </div>
               </div>
@@ -91,13 +84,15 @@ export function AppSidebar(): JSX.Element {
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
           <span className="text-[10px] font-mono text-zinc-400">GATEWAY_CONNECTED</span>
         </div>
-        <div className="flex items-center justify-between text-zinc-600">
+        <div className="flex items-center justify-between text-zinc-600 mt-2">
           <Settings className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
           <LifeBuoy className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
           <Activity className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
+        </div>
+        <div className="mt-4 text-center">
+          <span className="text-[8px] font-mono text-zinc-700 hover:text-zinc-500 cursor-pointer uppercase">Build History v1.0.42</span>
         </div>
       </SidebarFooter>
     </Sidebar>
   );
 }
-import { LifeBuoy } from "lucide-react";
