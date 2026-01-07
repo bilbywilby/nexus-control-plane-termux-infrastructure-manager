@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OverviewView } from '@/components/dashboard/OverviewView';
 import { SnapshotsView } from '@/components/dashboard/SnapshotsView';
@@ -11,16 +11,27 @@ import { WorkflowView } from '@/components/dashboard/WorkflowView';
 import { DocumentationView } from '@/components/dashboard/DocumentationView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Brain, WifiOff, ScrollText, FileBarChart, GitBranch, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Brain, WifiOff, ScrollText, FileBarChart, GitBranch, BookOpen, Info } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNetwork } from '@/hooks/use-network';
+import { chatService } from '@/lib/chat';
 import { cn } from '@/lib/utils';
 export function HomePage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isTermuxMode, setIsTermuxMode] = useState(true);
+  const [roadmapProgress, setRoadmapProgress] = useState(88);
   const { isOnline } = useNetwork();
+  useEffect(() => {
+    const fetchProgress = async () => {
+      const res = await chatService.getMessages();
+      if (res.success && res.data?.roadmap) {
+        const current = res.data.roadmap.find(r => r.status === 'current');
+        if (current) setRoadmapProgress(current.progress);
+      }
+    };
+    fetchProgress();
+  }, []);
   const nodeLabel = isTermuxMode ? 'TERMUX_ALPHA_V2' : 'DESKTOP_NODE_01';
-  const roadmapProgress = 88;
   return (
     <AppLayout className={cn("bg-zinc-950 text-zinc-100 transition-all duration-700", !isOnline && "grayscale-[0.3]")}>
       {!isOnline && (
@@ -83,9 +94,9 @@ export function HomePage() {
                   { value: 'research', icon: Brain, label: 'Research' },
                   { value: 'logs', icon: Terminal, label: 'Shell' },
                 ].map((tab) => (
-                  <TabsTrigger 
+                  <TabsTrigger
                     key={tab.value}
-                    value={tab.value} 
+                    value={tab.value}
                     className="gap-2 font-mono text-[10px] uppercase tracking-wider data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-500 border border-transparent data-[state=active]:border-emerald-500/20 px-4 py-2"
                   >
                     <tab.icon className="w-3.5 h-3.5" /> {tab.label}
@@ -108,12 +119,21 @@ export function HomePage() {
         </div>
       </div>
       <Toaster richColors theme="dark" />
-      <footer className="mt-auto py-8 border-t border-white/5 text-center px-4">
-        <div className="max-w-2xl mx-auto space-y-4">
+      <footer className="mt-auto py-12 border-t border-white/5 text-center px-4 bg-zinc-950/50">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex flex-col items-center gap-2 px-6 py-4 rounded-lg bg-amber-500/5 border border-amber-500/10">
+            <div className="flex items-center gap-2 text-amber-500">
+              <Info className="w-4 h-4" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest">AI Service Disclosure</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed max-w-xl">
+              Nexus utilizes distributed LLM services for infrastructure synthesis. Please note there is a strictly enforced limit on the number of requests that can be made to the AI servers across all user instances in any given time window.
+            </p>
+          </div>
           <p className="text-[10px] text-muted-foreground font-mono leading-relaxed">
             NEXUS_OS // BUILD_GATE_VERIFIED // RL_772 // PLUGIN_LOADER_V2_ACTIVE
             <br />
-            <span className="text-zinc-700">INFRA_ROADMAP_STAGE: 7 [DEV_WORKSTATION_EXP]</span>
+            <span className="text-zinc-700">INFRA_ROADMAP_STAGE: 7 [FINAL_POLISH_STABLE] // {new Date().getFullYear()} CORE_LOGS</span>
           </p>
         </div>
       </footer>
