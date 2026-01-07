@@ -5,8 +5,8 @@ export interface ChatResponse {
   error?: string;
 }
 export const MODELS = [
-  { id: 'google-ai-studio/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-  { id: 'google-ai-studio/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+  { id: 'google-ai-studio/gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+  { id: 'google-ai-studio/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
   { id: 'google-ai-studio/gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
 ];
 class ChatService {
@@ -32,6 +32,18 @@ class ChatService {
     } catch (error) {
       console.error('Failed to send message:', error);
       return { success: false, error: 'Failed to send message' };
+    }
+  }
+  async executeCommand(command: string): Promise<ChatResponse> {
+    try {
+      const response = await fetch(`${this.baseUrl}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: command }),
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Command execution failed' };
     }
   }
   async deployToGithub(branch: string = 'main', remote: string = 'origin'): Promise<{ success: boolean; error?: string }> {

@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel, ResearchQuery, WorkflowState, PluginItem, SystemAlert } from './types';
+import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel, ResearchQuery, WorkflowState, PluginItem, SystemAlert, InfrastructureFile, AgentProfile } from './types';
 import { ChatHandler } from './chat';
 import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
@@ -22,7 +22,9 @@ export class ChatAgent extends Agent<Env, ChatState> {
         totalActivations: 140,
         status: 'Active' as SkillStatus,
         lastAdjustment: Date.now(),
-        description: 'Lints, tests, and builds Python modules.'
+        description: 'Lints, tests, and builds Python modules.',
+        intentRules: ['test python', 'fix lint', 'run pytest'],
+        hooks: { pre: 'validate_build --env py3', post: 'clean_pyc' }
       },
       {
         id: 'security-audit',
@@ -34,7 +36,9 @@ export class ChatAgent extends Agent<Env, ChatState> {
         totalActivations: 48,
         status: 'Standby' as SkillStatus,
         lastAdjustment: Date.now(),
-        description: 'Automated vulnerability scanning for source code.'
+        description: 'Automated vulnerability scanning for source code.',
+        intentRules: ['scan secrets', 'audit security', 'check rsa'],
+        hooks: { pre: 'nexus-gate --verify-sec' }
       }
     ],
     resilience: {
@@ -72,9 +76,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
       NODE_VERSION: 'v20.12.0',
       LOG_FILE: '/data/data/com.termux/files/home/.nexus/sys.log',
       SHELL: '/usr/bin/bash',
-      U_ID: '772',
-      PROJECTS_DIR: '/data/data/com.termux/files/home/projects',
-      BIN_DIR: '/data/data/com.termux/files/home/projects/bin'
+      CLAUDE_INFRA_ACTIVE: 'true',
+      PROJECTS_DIR: '/data/data/com.termux/files/home/projects'
     },
     workflow: {
       currentBranch: 'main',
@@ -89,186 +92,83 @@ export class ChatAgent extends Agent<Env, ChatState> {
       { id: 'rust-comp', name: 'rust-compiler', author: 'Nexus Community', rating: 4.8, status: 'Available' },
       { id: 'r2-sync', name: 'r2-sync-agent', author: 'Nexus Core', rating: 5.0, status: 'Installed', loadPath: '.plugins/r2-sync.js' }
     ],
-    alerts: [
-      { id: 'ALT-01', level: 'Warning', message: 'High latency detected in validation gate', timestamp: Date.now(), threshold: 80, currentValue: 82 },
-      { id: 'ALT-02', level: 'Critical', message: 'Disk usage exceeding 85% on /data', timestamp: Date.now(), threshold: 85, currentValue: 88 }
-    ]
+    alerts: [],
+    infraFiles: [
+      { path: 'CLAUDE.md', type: 'Markdown', content: '# Project Memory\n\nStack: React, TypeScript, Cloudflare Agents\nNode: Nexus Alpha V2\n\n## Standards\n- Use functional components\n- Enforce PEP8 for Python hooks\n- Snapshot before all major deployments' },
+      { path: '.claude/settings.json', type: 'JSON', content: '{\n  "lsp": {\n    "typescript": true,\n    "python": true\n  },\n  "hooks": {\n    "preToolUse": "validate_build",\n    "postToolUse": "format_all"\n  }\n}' },
+      { path: '.mcp.json', type: 'JSON', content: '{\n  "servers": {\n    "github": {\n      "url": "https://mcp.nexus/github",\n      "env": { "GITHUB_TOKEN": "${SEC_GH_TOKEN}" }\n    }\n  }\n}' },
+      { path: '.github/workflows/PR-review.yml', type: 'YAML', content: 'name: PR Review\non: pull_request\njobs:\n  review:\n    runs-on: nexus-node\n    steps:\n      - uses: actions/checkout@v4\n      - run: nexus-gate --verify' }
+    ],
+    agentProfiles: [
+      { id: 'code-reviewer', name: 'ReviewerBot', role: 'Security & Quality Gatekeeper', specification: 'Focus on RSA/PEM scanning and lint compliance.' },
+      { id: 'workflow-manager', name: 'DeployAgent', role: 'CI/CD Orchestrator', specification: 'Manage rolling snapshots and GitHub Action triggers.' }
+    ],
+    availableCommands: ['/ticket', '/pr-review', '/onboard', '/help']
   };
   async onStart(): Promise<void> {
-    this.chatHandler = new ChatHandler(
-      this.env.CF_AI_BASE_URL,
-      this.env.CF_AI_API_KEY,
-      this.state.model
-    );
-    this.emitSystemLog('INFO', 'Nexus node initialized. Storage path verified.');
+    this.chatHandler = new ChatHandler(this.env.CF_AI_BASE_URL, this.env.CF_AI_API_KEY, this.state.model);
+    this.emitSystemLog('INFO', 'Nexus node initialized with Claude Code infrastructure.');
   }
   private emitSystemLog(level: LogLevel, content: string) {
-    const log: Message = {
-      id: crypto.randomUUID(),
-      role: 'system',
-      content,
-      timestamp: Date.now(),
-      isSystemLog: true,
-      level
-    };
-    const workflow = { ...this.state.workflow };
-    const timestamp = new Date().toISOString();
-    workflow.scriptLogs = [...workflow.scriptLogs, `[${timestamp}] [${level}] ${content}`].slice(-50);
-    this.setState({
-      ...this.state,
-      messages: [...this.state.messages, log].slice(-200),
-      workflow
-    });
-  }
-  private pushAuditLog(level: AuditLog['level'], message: string, metadata: Record<string, any> = {}) {
-    const log: AuditLog = {
-      id: `EVT-${Math.floor(Math.random() * 10000)}`,
-      level,
-      message,
-      timestamp: new Date().toISOString(),
-      metadata
-    };
-    this.setState({
-      ...this.state,
-      auditLogs: [log, ...this.state.auditLogs].slice(0, 100)
-    });
+    const log: Message = { id: crypto.randomUUID(), role: 'system', content, timestamp: Date.now(), isSystemLog: true, level };
+    this.setState({ ...this.state, messages: [...this.state.messages, log].slice(-200) });
   }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const method = request.method;
-    if (method === 'GET' && url.pathname === '/messages') {
-      return Response.json({ success: true, data: this.state });
-    }
-    if (method === 'POST' && url.pathname === '/chat') {
-      const body = await request.json() as { message: string, model?: string };
+    if (request.method === 'GET' && url.pathname === '/messages') return Response.json({ success: true, data: this.state });
+    if (request.method === 'POST' && url.pathname === '/chat') {
+      const body = await request.json() as { message: string };
+      if (body.message.startsWith('/')) return this.handleCommand(body.message);
       return this.handleChatMessage(body);
     }
-    if (method === 'POST' && url.pathname === '/workflow') {
-      const body = await request.json() as { action: string, args?: Record<string, any> };
-      return this.handleWorkflow(body.action, body.args);
+    if (request.method === 'POST' && url.pathname === '/workflow') {
+       const body = await request.json() as { action: string };
+       return this.handleWorkflow(body.action);
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
-  private async handleWorkflow(action: string, args?: Record<string, any>): Promise<Response> {
-    if (action === 'deploy-github') return this.simulateGithubDeploy(args?.branch || 'main', args?.remote || 'origin');
-    if (action === 'superuser-v2') return this.simulateSuperuserWorkflow();
-    if (action === 'rollback') return this.simulateRollback(args?.snapshotId);
-    const workflow = { ...this.state.workflow };
-    this.emitSystemLog('GIT_COMMIT', `Workflow action: ${action}`);
-    workflow.pipelineStatus = 'Validating';
-    this.setState({ ...this.state, workflow });
+  private async handleCommand(command: string): Promise<Response> {
+    const base = command.split(' ')[0];
+    let content = '';
+    let level: LogLevel = 'INFO';
+    if (base === '/onboard') {
+      const claudeMd = this.state.infraFiles.find(f => f.path === 'CLAUDE.md');
+      content = `Project Context retrieved from CLAUDE.md:\n\n${claudeMd?.content || 'No context found.'}`;
+      level = 'INTENT_MATCH';
+    } else if (base === '/pr-review') {
+      content = 'Initializing automated PR review via agent: code-reviewer... Scanning for anti-patterns...';
+      level = 'HOOK_EXEC';
+      setTimeout(() => this.emitSystemLog('GATE_PASS', 'Review complete: 0 critical vulnerabilities found.'), 2000);
+    } else if (base === '/ticket') {
+      content = 'Issue context captured. Synthesizing implementation plan in .claude/buffer...';
+      level = 'INFO';
+    } else {
+      content = `Command ${base} processed. Refer to /help for all Nexus-Claude capabilities.`;
+    }
+    const sysMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content, timestamp: Date.now(), level, skillInsight: 'CLAUDE_CODE_COMMAND' };
+    this.setState({ ...this.state, messages: [...this.state.messages, sysMsg] });
+    return Response.json({ success: true, data: this.state });
+  }
+  private async handleWorkflow(action: string): Promise<Response> {
+    this.emitSystemLog('INFO', `Triggering GitHub Action simulation: ${action}`);
+    this.setState({ ...this.state, workflow: { ...this.state.workflow, pipelineStatus: 'ActionRunning' } });
     setTimeout(() => {
-      const finalWorkflow = { ...this.state.workflow };
-      finalWorkflow.pipelineStatus = 'Idle';
-      this.setState({ ...this.state, workflow: finalWorkflow });
-      this.emitSystemLog('INFO', `Workflow action ${action} completed.`);
-    }, 2000);
+      this.setState({ ...this.state, workflow: { ...this.state.workflow, pipelineStatus: 'Idle' } });
+      this.emitSystemLog('GATE_PASS', `Action ${action} completed successfully.`);
+    }, 3000);
     return Response.json({ success: true });
   }
-  private async simulateSuperuserWorkflow(): Promise<Response> {
-    this.emitSystemLog('INFO', 'Executing git_superuser_workflow v2.2...');
-    const workflow = { ...this.state.workflow };
-    workflow.pipelineStatus = 'Validating';
-    workflow.executionStep = 'CheckingVars';
-    this.setState({ ...this.state, workflow });
-    setTimeout(() => {
-      this.updateWorkflowStep('ValidatingBuild');
-      this.emitSystemLog('INFO', 'Running validate_build --gate-v3...');
-    }, 1000);
-    setTimeout(() => {
-      this.updateWorkflowStep('AutoFixing');
-      this.emitSystemLog('GATE_PASS', 'Syntax integrity verified. Auto-fixing lint warnings...');
-    }, 2500);
-    setTimeout(() => {
-      this.updateWorkflowStep('Snapshotting');
-      this.emitSystemLog('INFO', 'Build successful. Generating infrastructure snapshot...');
-      this.pushAuditLog('Deploy', 'Automated snapshot created via superuser v2.2');
-    }, 4000);
-    setTimeout(() => {
-      const finalWorkflow = { ...this.state.workflow };
-      finalWorkflow.pipelineStatus = 'Idle';
-      finalWorkflow.executionStep = 'Idle';
-      finalWorkflow.lastCommitHash = Math.random().toString(16).slice(2, 10);
-      this.setState({ ...this.state, workflow: finalWorkflow });
-      this.emitSystemLog('INFO', 'Git Superuser Workflow v2.2 finished successfully.');
-    }, 6000);
-    return Response.json({ success: true });
-  }
-  private async simulateGithubDeploy(branch: string, remote: string): Promise<Response> {
-    this.emitSystemLog('INFO', `Initializing deploy_github to ${remote}/${branch}...`);
-    const workflow = { ...this.state.workflow };
-    workflow.pipelineStatus = 'GitHubDeploying';
-    workflow.executionStep = 'Pushing';
-    this.setState({ ...this.state, workflow });
-    setTimeout(() => {
-      this.emitSystemLog('INFO', 'Pre-push gate check: set -euo pipefail active.');
-      this.emitSystemLog('GIT_COMMIT', 'Auto-committing unstaged infrastructure metadata...');
-    }, 1000);
-    setTimeout(() => {
-      this.emitSystemLog('INFO', `Pushing to ${remote} ${branch}...`);
-    }, 2500);
-    setTimeout(() => {
-      const finalWorkflow = { ...this.state.workflow };
-      finalWorkflow.pipelineStatus = 'Idle';
-      finalWorkflow.executionStep = 'Idle';
-      finalWorkflow.lastGithubPush = Date.now();
-      this.setState({ ...this.state, workflow: finalWorkflow });
-      this.emitSystemLog('GATE_PASS', `Successfully deployed to GitHub: ${remote}/${branch}`);
-      this.pushAuditLog('Git_Op', `GitHub push complete: ${remote}/${branch}`);
-    }, 4500);
-    return Response.json({ success: true });
-  }
-  private async simulateRollback(snapshotId?: string): Promise<Response> {
-    const id = snapshotId || `SNP-${Math.floor(Math.random() * 1000 + 900)}`;
-    this.emitSystemLog('WARN', `Executing infrastructure rollback to ${id}...`);
-    const workflow = { ...this.state.workflow };
-    workflow.pipelineStatus = 'RollingBack';
-    this.setState({ ...this.state, workflow });
-    setTimeout(() => {
-      this.emitSystemLog('INFO', 'Integrity check on snapshot archive: PASSED');
-      this.emitSystemLog('RECOVERY', 'Extracting tar.gz to $PROJECTS_DIR...');
-    }, 1500);
-    setTimeout(() => {
-      const finalWorkflow = { ...this.state.workflow };
-      finalWorkflow.pipelineStatus = 'Idle';
-      finalWorkflow.lastRollback = { timestamp: Date.now(), snapshotId: id };
-      this.setState({ ...this.state, workflow: finalWorkflow });
-      this.emitSystemLog('GATE_PASS', 'System state successfully restored.');
-      this.pushAuditLog('Recovery', `Rollback completed to ${id}`);
-    }, 3500);
-    return Response.json({ success: true });
-  }
-  private updateWorkflowStep(step: WorkflowState['executionStep']) {
-    const workflow = { ...this.state.workflow, executionStep: step };
-    this.setState({ ...this.state, workflow });
-  }
-  private async handleChatMessage(body: { message: string, model?: string }): Promise<Response> {
+  private async handleChatMessage(body: { message: string }): Promise<Response> {
     const { message } = body;
-    const currentHistory = [...this.state.messages];
-    const userMessage = createMessage('user', message);
-    this.setState({
-      ...this.state,
-      messages: [...currentHistory, userMessage],
-      isProcessing: true
-    });
+    const history = [...this.state.messages];
+    this.setState({ ...this.state, messages: [...history, createMessage('user', message)], isProcessing: true });
     try {
-      const response = await this.chatHandler!.processMessage(
-        message, 
-        currentHistory, 
-        undefined, 
-        this.state.activeSkills, 
-        this.state.skills
-      );
-      const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
-      this.setState({
-        ...this.state,
-        messages: [...this.state.messages, assistantMessage],
-        isProcessing: false
-      });
+      const response = await this.chatHandler!.processMessage(message, history, undefined, this.state.activeSkills, this.state.skills);
+      this.setState({ ...this.state, messages: [...this.state.messages, createMessage('assistant', response.content, response.toolCalls)], isProcessing: false });
       return Response.json({ success: true, data: this.state });
-    } catch (error) {
+    } catch (e) {
       this.setState({ ...this.state, isProcessing: false });
-      return Response.json({ success: false, error: 'Processing error' }, { status: 500 });
+      return Response.json({ success: false, error: 'Chat error' }, { status: 500 });
     }
   }
 }

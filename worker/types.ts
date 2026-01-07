@@ -11,7 +11,19 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START';
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC';
+export interface InfrastructureFile {
+  path: string;
+  content: string;
+  type: 'Markdown' | 'JSON' | 'YAML' | 'Shell';
+}
+export interface AgentProfile {
+  id: string;
+  name: string;
+  role: string;
+  specification: string;
+  avatar?: string;
+}
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -32,7 +44,7 @@ export interface ToolCall {
 export interface WorkflowState {
   currentBranch: string;
   lastCommitHash: string;
-  pipelineStatus: 'Idle' | 'Building' | 'Validating' | 'Deploying' | 'Failed' | 'RollingBack' | 'GitHubDeploying';
+  pipelineStatus: 'Idle' | 'Building' | 'Validating' | 'Deploying' | 'Failed' | 'RollingBack' | 'GitHubDeploying' | 'ActionRunning';
   version: string;
   changelog: string[];
   scriptLogs: string[];
@@ -71,6 +83,11 @@ export interface Skill {
   description: string;
   loadPath?: string;
   sop?: string;
+  intentRules?: string[];
+  hooks?: {
+    pre?: string;
+    post?: string;
+  };
 }
 export interface AuditLog {
   id: string;
@@ -135,6 +152,9 @@ export interface ChatState {
   workflow: WorkflowState;
   plugins: PluginItem[];
   alerts: SystemAlert[];
+  infraFiles: InfrastructureFile[];
+  agentProfiles: AgentProfile[];
+  availableCommands: string[];
 }
 export interface SessionInfo {
   id: string;
