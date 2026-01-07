@@ -91,7 +91,9 @@ class ChatService {
       return { success: false, error: 'Failed to clear messages' };
     }
   }
-  getSessionId(): string { return this.sessionId; }
+  getSessionId(): string {
+    return this.sessionId;
+  }
   newSession(): void {
     this.sessionId = crypto.randomUUID();
     this.baseUrl = `/api/chat/${this.sessionId}`;
@@ -106,8 +108,15 @@ export const formatTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 export const renderToolCall = (toolCall: ToolCall): string => {
-  const result = toolCall.result as any;
-  if (!result) return `⚠️ ${toolCall.name}: No result`;
-  if ('error' in result) return `❌ ${toolCall.name}: ${result.error}`;
-  return `���� ${toolCall.name}: Done`;
+  const result = toolCall.result;
+  if (result === undefined || result === null) {
+    return `⏳ ${toolCall.name}: Pending...`;
+  }
+  if (typeof result === 'object' && 'error' in (result as any)) {
+    return `��� ${toolCall.name}: ${(result as any).error}`;
+  }
+  if (typeof result === 'object' && 'content' in (result as any)) {
+    return `✅ ${toolCall.name}: Success`;
+  }
+  return `📦 ${toolCall.name}: Complete`;
 };
