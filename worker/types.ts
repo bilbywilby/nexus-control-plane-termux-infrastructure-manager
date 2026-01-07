@@ -19,6 +19,7 @@ export interface Message {
   toolCalls?: ToolCall[];
   skillInsight?: string;
   isSystemLog?: boolean;
+  isQueued?: boolean;
 }
 export interface ToolCall {
   id: string;
@@ -40,6 +41,22 @@ export interface Skill {
   lastAdjustment: number;
   description: string;
 }
+export interface FaultToleranceStats {
+  primaryPathActive: boolean;
+  secondaryPathActive: boolean;
+  recoverySuccessRate: number;
+  uptimeScore: number;
+  redundantSnapshotsCount: number;
+}
+export interface ResearchQuery {
+  id: string;
+  question: string;
+  status: 'Analyzing' | 'Resolved';
+  confidence: number;
+  results?: string;
+  sources: string[];
+  timestamp: number;
+}
 export interface ResilienceStats {
   gatePassRate: number;
   retryCount: number;
@@ -57,6 +74,9 @@ export interface ChatState {
   activeSkills: string[];
   skills: Skill[];
   resilience: ResilienceStats;
+  faultTolerance: FaultToleranceStats;
+  researchHistory: ResearchQuery[];
+  environment: 'Termux' | 'Desktop';
 }
 export interface SessionInfo {
   id: string;

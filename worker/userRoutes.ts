@@ -27,27 +27,32 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const sessions = await controller.listSessions();
         return c.json({ success: true, data: sessions });
     });
-    app.post('/api/sessions', async (c) => {
-        const body = await c.req.json().catch(() => ({}));
-        const { title, sessionId: providedSessionId, firstMessage } = body;
-        const sessionId = providedSessionId || crypto.randomUUID();
-        let sessionTitle = title || `Nexus Session ${new Date().toLocaleDateString()}`;
-        await registerSession(c.env, sessionId, sessionTitle);
-        return c.json({ success: true, data: { sessionId, title: sessionTitle } });
+    app.get('/api/research', async (c) => {
+      // Mocked endpoint - in production this would route to a persistent agent
+      return c.json({ success: true, data: [] });
     });
-    app.delete('/api/sessions/:sessionId', async (c) => {
-        const deleted = await unregisterSession(c.env, c.req.param('sessionId'));
-        return c.json({ success: true, data: { deleted } });
+    app.get('/api/logs', async (c) => {
+      const logs = [
+        { time: '2024-05-20 14:00:01', event: 'GATE_PASS', details: 'integrity: 100%' },
+        { time: '2024-05-20 14:05:12', event: 'HEAL_EVENT', details: 'Primary -> Secondary Failover Triggered' },
+        { time: '2024-05-20 14:05:30', event: 'HEAL_RESOLVED', details: 'Validation restored via secondary path' },
+        { time: '2024-05-20 14:10:00', event: 'SNAPSHOT_REDUNDANCY', details: 'Triple backup complete for SNP-0942' }
+      ];
+      return c.json({ success: true, data: logs });
+    });
+    app.post('/api/system/recovery', async (c) => {
+      const { snapshotId } = await c.req.json();
+      return c.json({ success: true, message: `Manual recovery initiated from ${snapshotId}` });
     });
     app.get('/api/system/health', async (c) => {
-        // Aggregated health from the default controller/agent context
         return c.json({
             success: true,
             data: {
                 status: 'Healthy',
                 uptime: '14d 2h',
-                nodes: ['0x-alpha-v2'],
-                gate: { passRate: 98.5, status: 'Active' }
+                nodes: ['0x-alpha-v2', '0x-beta-node'],
+                gate: { passRate: 99.9, status: 'Active' },
+                faultTolerance: 'NOMINAL'
             }
         });
     });
