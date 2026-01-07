@@ -5,11 +5,14 @@ import { SnapshotsView } from '@/components/dashboard/SnapshotsView';
 import { SkillsView } from '@/components/dashboard/SkillsView';
 import { ResearchView } from '@/components/dashboard/ResearchView';
 import { TerminalWidget } from '@/components/dashboard/TerminalWidget';
+import { AuditLogView } from '@/components/dashboard/AuditLogView';
+import { ReportingView } from '@/components/dashboard/ReportingView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Zap, Brain, Globe, WifiOff, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Database, Cpu, Terminal, ShieldCheck, Brain, WifiOff, ScrollText, FileBarChart, Server } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNetwork } from '@/hooks/use-network';
+import { cn } from '@/lib/utils';
 export function HomePage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isTermuxMode, setIsTermuxMode] = useState(true);
@@ -62,6 +65,12 @@ export function HomePage() {
                 <TabsTrigger value="skills" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                   <Cpu className="w-4 h-4" /> Skills
                 </TabsTrigger>
+                <TabsTrigger value="audit" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <ScrollText className="w-4 h-4" /> Audit
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <FileBarChart className="w-4 h-4" /> Reports
+                </TabsTrigger>
                 <TabsTrigger value="research" className="gap-2 font-mono text-xs uppercase tracking-wider data-[state=active]:bg-cyan-600 data-[state=active]:text-white">
                   <Brain className="w-4 h-4" /> Research
                 </TabsTrigger>
@@ -78,6 +87,12 @@ export function HomePage() {
             </TabsContent>
             <TabsContent value="skills" className="mt-0 outline-none">
               <SkillsView />
+            </TabsContent>
+            <TabsContent value="audit" className="mt-0 outline-none">
+              <AuditLogView />
+            </TabsContent>
+            <TabsContent value="reports" className="mt-0 outline-none">
+              <ReportingView />
             </TabsContent>
             <TabsContent value="research" className="mt-0 outline-none">
               <ResearchView />

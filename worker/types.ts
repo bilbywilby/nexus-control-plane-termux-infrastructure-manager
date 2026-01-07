@@ -41,6 +41,20 @@ export interface Skill {
   lastAdjustment: number;
   description: string;
 }
+export interface AuditLog {
+  id: string;
+  level: 'Info' | 'Warning' | 'Error' | 'Recovery' | 'Gate_Pass' | 'Skill_Activate';
+  message: string;
+  timestamp: string;
+  metadata: Record<string, any>;
+}
+export interface ReportingMetrics {
+  totalOperations: number;
+  avgLatency: number;
+  securityScore: number;
+  uptimeTrend: number[];
+  failureCategories: Record<string, number>;
+}
 export interface FaultToleranceStats {
   primaryPathActive: boolean;
   secondaryPathActive: boolean;
@@ -76,6 +90,8 @@ export interface ChatState {
   resilience: ResilienceStats;
   faultTolerance: FaultToleranceStats;
   researchHistory: ResearchQuery[];
+  auditLogs: AuditLog[];
+  reporting: ReportingMetrics;
   environment: 'Termux' | 'Desktop';
 }
 export interface SessionInfo {

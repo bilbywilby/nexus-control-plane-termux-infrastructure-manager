@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { chatService } from '@/lib/chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, Send, Trash2, Cpu, ShieldCheck, Zap, Info, WifiOff } from 'lucide-react';
+import { Terminal, Send, Trash2, Zap, WifiOff } from 'lucide-react';
 import { Message } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 import { useNetwork } from '@/hooks/use-network';
@@ -14,30 +14,38 @@ export function TerminalWidget() {
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isOnline } = useNetwork();
+  const loadMessages = useCallback(async () => {
+    if (!isOnline) return;
+    const res = await chatService.getMessages();
+    if (res.success && res.data) {
+      setMessages(res.data.messages);
+    }
+  }, [isOnline]);
   useEffect(() => {
     const cached = localStorage.getItem('nexus_terminal_cache');
     if (cached) {
-      setMessages(JSON.parse(cached));
+      try {
+        setMessages(JSON.parse(cached));
+      } catch (e) {
+        console.error("Failed to parse cache", e);
+      }
     }
     loadMessages();
-  }, []);
+  }, [loadMessages]);
   useEffect(() => {
     localStorage.setItem('nexus_terminal_cache', JSON.stringify(messages.slice(-50)));
+    // Smooth scroll to bottom
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
     const lastMsg = messages[messages.length - 1];
     if (lastMsg?.skillInsight) {
       setActiveContext(lastMsg.skillInsight.toUpperCase());
     }
   }, [messages, isLoading]);
-  const loadMessages = async () => {
-    if (!isOnline) return;
-    const res = await chatService.getMessages();
-    if (res.success && res.data) {
-      setMessages(res.data.messages);
-    }
-  };
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     const userMsg = input.trim();
@@ -90,7 +98,7 @@ export function TerminalWidget() {
           </div>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth">
         {messages.map((m) => (
           <div key={m.id} className={cn("flex flex-col gap-1", m.role === 'user' ? "items-end" : "items-start")}>
             <div className={cn(
@@ -99,7 +107,7 @@ export function TerminalWidget() {
             )}>
               <div className="flex items-center justify-between gap-4 mb-1">
                 <span className="text-[9px] font-bold opacity-50 uppercase">
-                  {m.role === 'user' ? 'LOCAL_OP' : 'NEXUS_AGENT'}
+                  {m.role === 'user' ? 'LOCAL_OP' : (m.role === 'system' ? 'SYSTEM' : 'NEXUS_AGENT')}
                 </span>
                 {m.isQueued && (
                   <Badge variant="outline" className="text-[8px] h-3 px-1 border-amber-500/30 text-amber-500">QUEUED</Badge>
