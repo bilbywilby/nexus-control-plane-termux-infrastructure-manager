@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel, ResearchQuery } from './types';
+import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel, ResearchQuery, ValidationReport, ValidationCheck } from './types';
 import { ChatHandler } from './chat';
 import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
@@ -25,7 +25,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
         lastAdjustment: Date.now(),
         description: 'Lints, tests, and builds Python modules.',
         intentRules: ['test python', 'fix lint', 'run pytest'],
-        hooks: { pre: 'validate_build --env py3', post: 'clean_pyc' }
+        hooks: { pre: 'validate_build --env py3', post: 'clean_pyc' },
+        weight: 0.85
       },
       {
         id: 'security-audit',
@@ -39,7 +40,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
         lastAdjustment: Date.now(),
         description: 'Automated vulnerability scanning for source code.',
         intentRules: ['scan secrets', 'audit security', 'check rsa'],
-        hooks: { pre: 'nexus-gate --verify-sec' }
+        hooks: { pre: 'nexus-gate --verify-sec' },
+        weight: 0.92
       },
       {
         id: 'jira-agent',
@@ -53,7 +55,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
         lastAdjustment: Date.now(),
         description: 'Interfaces with JIRA for task and ticket management.',
         intentRules: ['create ticket', 'search issue', 'resolve bug'],
-        hooks: { pre: 'nexus-gate --verify-ticket' }
+        hooks: { pre: 'nexus-gate --verify-ticket' },
+        weight: 0.80
       },
       {
         id: 'deploy-github',
@@ -66,7 +69,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
         status: 'Standby' as SkillStatus,
         lastAdjustment: Date.now(),
         description: 'Orchestrates GitHub Action deployments and releases.',
-        intentRules: ['deploy to main', 'push to origin', 'create release']
+        intentRules: ['deploy to main', 'push to origin', 'create release'],
+        weight: 0.98
       }
     ],
     resilience: {
@@ -123,29 +127,56 @@ export class ChatAgent extends Agent<Env, ChatState> {
     alerts: [],
     infraFiles: [
       { path: 'CLAUDE.md', type: 'Markdown', content: '# Project Memory\n\nStack: React, TypeScript, Cloudflare Agents\nNode: Nexus Alpha V2\n\n## Standards\n- Use functional components\n- Enforce PEP8 for Python hooks\n- Snapshot before all major deployments' },
-      { path: '.claude/hooks/evaluate_intent.sh', type: 'Shell', content: '#!/bin/bash\n# Nexus Intent Evaluation Hook\nQUERY=$1\nLOG_FILE="/data/data/com.termux/files/home/.nexus/sys.log"\n\nif [[ $QUERY =~ (ticket|issue|bug) ]]; then\n  echo "[INTENT] SUGGESTED: jira-agent" >> $LOG_FILE\n  echo "jira-agent"\nelif [[ $QUERY =~ (deploy|push|release) ]]; then\n  echo "[INTENT] SUGGESTED: deploy-github" >> $LOG_FILE\n  echo "deploy-github"\nelif [[ $QUERY =~ (test|validate|check) ]]; then\n  echo "[INTENT] SUGGESTED: testing-standard" >> $LOG_FILE\n  echo "testing-standard"\nfi' },
-      { path: '.claude/settings.json', type: 'JSON', content: '{\n  "lsp": {\n    "typescript": true,\n    "python": true\n  },\n  "hooks": {\n    "preToolUse": "validate_build",\n    "postToolUse": "format_all",\n    "evaluateIntent": ".claude/hooks/evaluate_intent.sh"\n  }\n}' }
+      { path: '.claude/index.json', type: 'JSON', content: '{\n  "skills": {\n    "python-dev": { "weight": 0.85 },\n    "security-audit": { "weight": 0.95 },\n    "jira-agent": { "weight": 0.70 },\n    "deploy-github": { "weight": 0.99 }\n  }\n}' },
+      { path: 'bin/init_project', type: 'Shell', content: '#!/bin/bash\nmkdir -p .claude/hooks bin .plugins\nchmod +x bin/*\necho "Nexus Project Initialized."' },
+      { path: 'bin/prune_snapshots', type: 'Shell', content: '#!/bin/bash\n# Keep 5 most recent snapshots\nls -t .snapshots/ | tail -n +6 | xargs rm -rf\necho "Snapshot rotation complete."' }
     ],
     agentProfiles: [
       { id: 'code-reviewer', name: 'ReviewerBot', role: 'Security & Quality Gatekeeper', specification: 'Focus on RSA/PEM scanning and lint compliance.' },
       { id: 'workflow-manager', name: 'DeployAgent', role: 'CI/CD Orchestrator', specification: 'Manage rolling snapshots and GitHub Action triggers.' }
     ],
-    availableCommands: ['/ticket', '/pr-review', '/onboard', '/help', '/evaluate-intent']
+    availableCommands: ['/ticket', '/pr-review', '/onboard', '/help', '/evaluate-intent', '/validate']
   };
   async onStart(): Promise<void> {
     this.chatHandler = new ChatHandler(this.env.CF_AI_BASE_URL, this.env.CF_AI_API_KEY, this.state.model);
-    this.emitSystemLog('INFO', 'Nexus node initialized with Claude Code infrastructure.');
+    this.emitSystemLog('INFO', 'Nexus node initialized with Structured Infrastructure v3.');
   }
   private emitSystemLog(level: LogLevel, content: string, intentMatch?: string) {
     const log: Message = { id: crypto.randomUUID(), role: 'system', content, timestamp: Date.now(), isSystemLog: true, level, intentMatch };
     this.setState({ ...this.state, messages: [...this.state.messages, log].slice(-200) });
   }
-  private evaluateIntent(query: string): string[] {
-    const matches: string[] = [];
-    if (/(ticket|issue|bug|jira)/i.test(query)) matches.push('jira-agent');
-    if (/(deploy|push|release|github)/i.test(query)) matches.push('deploy-github');
-    if (/(test|validate|check|lint)/i.test(query)) matches.push('python-dev');
-    return matches;
+  private evaluateIntentV3(query: string): { skillId: string; rank: number }[] {
+    const scores = this.state.skills.map(skill => {
+      let matchScore = 0;
+      skill.intentRules?.forEach(rule => {
+        if (query.toLowerCase().includes(rule.toLowerCase())) matchScore += 1;
+      });
+      const regex = new RegExp(skill.triggerRegex, 'i');
+      if (regex.test(query)) matchScore += 2;
+      const finalRank = matchScore * (skill.weight || 0.5);
+      return { skillId: skill.id, rank: finalRank };
+    });
+    return scores
+      .filter(s => s.rank > 0)
+      .sort((a, b) => b.rank - a.rank);
+  }
+  private simulateValidationV3(): ValidationReport {
+    const checks: ValidationCheck[] = [
+      { id: 'BASH_VER', status: 'Pass', message: 'Bash version 5.2.26(1)-release detected.', fixable: false, category: 'Tool' },
+      { id: 'DIR_REQ', status: 'Warning', message: 'Missing directory: .snapshots/', fixable: true, category: 'Directory' },
+      { id: 'SKILL_REG', status: 'Pass', message: 'All 4 skills matched index.json weights.', fixable: false, category: 'Security' },
+      { id: 'FILE_INT', status: 'Pass', message: 'CLAUDE.md checksum verified.', fixable: false, category: 'File' }
+    ];
+    return {
+      status: checks.some(c => c.status === 'Fail') ? 'Fail' : 'Pass',
+      timestamp: Date.now(),
+      checks,
+      systemContext: {
+        bashVersion: '5.2.26',
+        nodeVersion: 'v20.12.0',
+        arch: 'aarch64'
+      }
+    };
   }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -155,27 +186,25 @@ export class ChatAgent extends Agent<Env, ChatState> {
       if (body.message.startsWith('/')) return this.handleCommand(body.message);
       return this.handleChatMessage(body);
     }
-    if (request.method === 'POST' && url.pathname === '/research') {
-      const body = await request.json() as { question: string };
-      const newQuery: ResearchQuery = {
-        id: `RES-${Math.floor(Math.random() * 9000) + 1000}`,
-        question: body.question,
-        status: 'Resolved',
-        confidence: 85 + Math.floor(Math.random() * 10),
-        results: `Synthesis complete. Autonomic Intent Evaluation successfully matched patterns for ${body.question}.`,
-        sources: ['CLAUDE.md', '.claude/hooks/evaluate_intent.sh'],
-        timestamp: Date.now()
-      };
-      await this.setState({ ...this.state, researchHistory: [newQuery, ...this.state.researchHistory].slice(0, 50) });
-      return Response.json({ success: true, data: newQuery });
+    if (request.method === 'POST' && url.pathname === '/validate') {
+      const report = this.simulateValidationV3();
+      await this.setState({ 
+        ...this.state, 
+        workflow: { ...this.state.workflow, lastValidationReport: report }
+      });
+      this.emitSystemLog('GATE_PASS', `Validation v3 complete: ${report.status}`, JSON.stringify(report));
+      return Response.json({ success: true, data: report });
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
   private async handleChatMessage(body: { message: string }): Promise<Response> {
     const { message } = body;
-    const suggested = this.evaluateIntent(message);
-    if (suggested.length > 0) {
-      this.emitSystemLog('INTENT_SUGGESTION', `Autonomic detection matched skills: ${suggested.join(', ')}`, suggested.join('|'));
+    const rankedIntents = this.evaluateIntentV3(message);
+    if (rankedIntents.length > 0) {
+      const topMatch = rankedIntents[0];
+      const matchData = JSON.stringify(topMatch);
+      this.emitSystemLog('INTENT_MATCH', `Fuzzy match: ${topMatch.skillId} (Rank: ${topMatch.rank.toFixed(2)})`, matchData);
+      const suggested = [topMatch.skillId];
       const newActive = Array.from(new Set([...this.state.activeSkills, ...suggested]));
       await this.setState({ ...this.state, suggestedSkills: suggested, activeSkills: newActive });
     }
@@ -183,11 +212,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
     this.setState({ ...this.state, messages: [...history, createMessage('user', message)], isProcessing: true });
     try {
       const response = await this.chatHandler!.processMessage(message, history, undefined, this.state.activeSkills, this.state.skills);
-      this.setState({ 
-        ...this.state, 
-        messages: [...this.state.messages, createMessage('assistant', response.content, response.toolCalls)], 
+      this.setState({
+        ...this.state,
+        messages: [...this.state.messages, createMessage('assistant', response.content, response.toolCalls)],
         isProcessing: false,
-        suggestedSkills: [] // Reset suggestions after processing
+        suggestedSkills: []
       });
       return Response.json({ success: true, data: this.state });
     } catch (e) {
@@ -199,10 +228,15 @@ export class ChatAgent extends Agent<Env, ChatState> {
     const base = command.split(' ')[0];
     let content = '';
     let level: LogLevel = 'INFO';
-    if (base === '/evaluate-intent') {
+    if (base === '/validate') {
+      const report = this.simulateValidationV3();
+      await this.setState({ ...this.state, workflow: { ...this.state.workflow, lastValidationReport: report }});
+      content = `Validation Run: ${report.status}. Checks: ${report.checks.length}`;
+      level = 'GATE_PASS';
+    } else if (base === '/evaluate-intent') {
       const query = command.split(' ').slice(1).join(' ');
-      const suggested = this.evaluateIntent(query);
-      content = suggested.length > 0 ? `Intent match found: ${suggested.join(', ')}` : "No specific intent pattern matched.";
+      const suggested = this.evaluateIntentV3(query);
+      content = suggested.length > 0 ? `Intent rank: ${JSON.stringify(suggested)}` : "No match.";
       level = 'INTENT_SUGGESTION';
     } else {
       content = `Executed ${base}.`;

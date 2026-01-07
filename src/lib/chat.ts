@@ -1,4 +1,4 @@
-import type { Message, ChatState, ToolCall, ResearchQuery, WorkflowState } from '../../worker/types';
+import type { Message, ChatState, ToolCall, ResearchQuery, WorkflowState, ValidationReport } from '../../worker/types';
 export interface ChatResponse {
   success: boolean;
   data?: ChatState;
@@ -48,6 +48,17 @@ class ChatService {
   }
   async revaluateIntent(query: string): Promise<ChatResponse> {
     return this.executeCommand(`/evaluate-intent ${query}`);
+  }
+  async runValidationV3(): Promise<{ success: boolean; data?: ValidationReport; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: 'Validation engine unreachable' };
+    }
   }
   async conductResearch(question: string): Promise<{ success: boolean; data?: ResearchQuery; error?: string }> {
     try {
