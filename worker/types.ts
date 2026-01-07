@@ -11,7 +11,7 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC';
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION';
 export interface InfrastructureFile {
   path: string;
   content: string;
@@ -34,6 +34,7 @@ export interface Message {
   isSystemLog?: boolean;
   isQueued?: boolean;
   level?: LogLevel;
+  intentMatch?: string;
 }
 export interface ToolCall {
   id: string;
@@ -140,6 +141,7 @@ export interface ChatState {
   model: string;
   streamingMessage?: string;
   activeSkills: string[];
+  suggestedSkills: string[];
   skills: Skill[];
   resilience: ResilienceStats;
   faultTolerance: FaultToleranceStats;

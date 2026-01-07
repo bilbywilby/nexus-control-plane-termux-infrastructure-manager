@@ -3,16 +3,17 @@ import { chatService } from '@/lib/chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, Send, Trash2, Zap, ShieldCheck, Sparkles, Command } from 'lucide-react';
+import { Terminal, Send, Trash2, Zap, ShieldCheck, Sparkles, Command, Info } from 'lucide-react';
 import type { Message, LogLevel } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 import { useNetwork } from '@/hooks/use-network';
-import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 export function TerminalWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [availableCommands, setAvailableCommands] = useState<string[]>([]);
+  const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isOnline } = useNetwork();
   const loadData = useCallback(async () => {
@@ -21,6 +22,7 @@ export function TerminalWidget() {
     if (res.success && res.data) {
       setMessages(res.data.messages);
       setAvailableCommands(res.data.availableCommands);
+      setSuggestedSkills(res.data.suggestedSkills || []);
     }
   }, [isOnline]);
   useEffect(() => {
@@ -45,8 +47,8 @@ export function TerminalWidget() {
     setIsLoading(false);
   };
   const getLogStyle = (m: Message) => {
-    if (m.level === 'INTENT_MATCH') return 'text-sparkle-gradient font-bold';
-    if (m.level === 'HOOK_EXEC') return 'text-cyan-400 font-bold';
+    if (m.level === 'INTENT_MATCH' || m.level === 'INTENT_SUGGESTION') return 'text-cyan-400 font-bold';
+    if (m.level === 'HOOK_EXEC') return 'text-amber-400 font-bold';
     if (m.level === 'GATE_PASS') return 'text-emerald-500 font-bold';
     return m.role === 'user' ? 'text-zinc-300' : 'text-emerald-400';
   };
@@ -55,8 +57,8 @@ export function TerminalWidget() {
       <div className="bg-zinc-900/80 px-4 py-2 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Claude_Code_Shell_v1.0</span>
-          <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[8px] h-4">LSP_ACTIVE</Badge>
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Nexus_Infra_Console_v2.1</span>
+          <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[8px] h-4">INTENT_EVAL_ACTIVE</Badge>
         </div>
         <div className="flex gap-2">
            <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500" onClick={() => chatService.clearMessages()}><Trash2 className="w-3 h-3" /></Button>
@@ -70,13 +72,34 @@ export function TerminalWidget() {
               <span className={cn("uppercase font-bold shrink-0 mr-2", m.role === 'user' ? 'text-cyan-500' : 'text-emerald-500')}>
                 {m.role === 'user' ? 'LOCAL_OP>' : 'NEXUS_AGENT>'}
               </span>
-              {m.level === 'INTENT_MATCH' && <Badge className="bg-sparkle-gradient text-white text-[7px] h-3 mr-2 border-none">INTENT_MATCH</Badge>}
+              {m.level === 'INTENT_SUGGESTION' && <Sparkles className="inline-block w-3 h-3 text-cyan-400 mr-2 animate-pulse" />}
               <span className={getLogStyle(m)}>{m.content}</span>
+              {m.intentMatch && <span className="ml-2 text-[8px] text-zinc-700 bg-zinc-900 px-1 rounded">Pattern: {m.intentMatch}</span>}
             </div>
           </div>
         ))}
-        {isLoading && <div className="text-emerald-500/50 text-[11px] animate-pulse">PROCESSING_INTENT...</div>}
+        {isLoading && <div className="text-emerald-500/50 text-[11px] animate-pulse flex items-center gap-2">
+          <Sparkles className="w-3 h-3" /> EVALUATING_INTENT_CONTEXT...
+        </div>}
       </div>
+      <AnimatePresence>
+        {suggestedSkills.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-emerald-500/10 border-t border-emerald-500/20 px-4 py-2 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-tighter">
+                Dynamic Context Optimization: Loading {suggestedSkills.join(', ')}
+              </span>
+            </div>
+            <Info className="w-3.5 h-3.5 text-emerald-600 cursor-help" />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="p-3 bg-zinc-900/30 border-t border-white/5 space-y-2">
         {input.startsWith('/') && (
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -93,7 +116,7 @@ export function TerminalWidget() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type '/' for Claude Code commands..."
+            placeholder="Type command or natural intent (e.g., 'deploy to prod')..."
             className="flex-1 bg-transparent border-none focus-visible:ring-0 text-zinc-300 text-[11px] h-9"
           />
           <Button size="icon" variant="ghost" onClick={handleSend} disabled={isLoading} className="text-emerald-500 h-8 w-8 hover:bg-emerald-500/10">

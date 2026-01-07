@@ -1,4 +1,4 @@
-import type { Message, ChatState, ToolCall, SessionInfo, ResearchQuery, WorkflowState } from '../../worker/types';
+import type { Message, ChatState, ToolCall, ResearchQuery, WorkflowState } from '../../worker/types';
 export interface ChatResponse {
   success: boolean;
   data?: ChatState;
@@ -46,11 +46,8 @@ class ChatService {
       return { success: false, error: 'Command execution failed' };
     }
   }
-  async deployToGithub(branch: string = 'main', remote: string = 'origin'): Promise<{ success: boolean; error?: string }> {
-    return this.triggerWorkflowAction('deploy-github', { branch, remote });
-  }
-  async executeRollback(snapshotId?: string): Promise<{ success: boolean; error?: string }> {
-    return this.triggerWorkflowAction('rollback', { snapshotId });
+  async revaluateIntent(query: string): Promise<ChatResponse> {
+    return this.executeCommand(`/evaluate-intent ${query}`);
   }
   async conductResearch(question: string): Promise<{ success: boolean; data?: ResearchQuery; error?: string }> {
     try {
