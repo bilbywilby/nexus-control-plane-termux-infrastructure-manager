@@ -72,14 +72,18 @@ export class ChatAgent extends Agent<Env, ChatState> {
       NODE_VERSION: 'v20.12.0',
       LOG_FILE: '/data/data/com.termux/files/home/.nexus/sys.log',
       SHELL: '/usr/bin/bash',
-      U_ID: '772'
+      U_ID: '772',
+      PROJECTS_DIR: '/data/data/com.termux/files/home/projects',
+      BIN_DIR: '/data/data/com.termux/files/home/projects/bin'
     },
     workflow: {
       currentBranch: 'main',
       lastCommitHash: '8f2c3d4e',
       pipelineStatus: 'Idle',
       version: '1.0.42',
-      changelog: ['Initial infrastructure commit']
+      changelog: ['Initial infrastructure commit'],
+      scriptLogs: [],
+      executionStep: 'Idle'
     },
     plugins: [
       { id: 'rust-comp', name: 'rust-compiler', author: 'Nexus Community', rating: 4.8, status: 'Available' },
@@ -99,6 +103,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
     this.emitSystemLog('INFO', 'Nexus node initialized. Storage path verified.');
   }
   private emitSystemLog(level: LogLevel, content: string) {
+    const timestamp = new Date().toISOString();
+    const formattedLog = `[${timestamp}] [${level}] ${content}`;
     const log: Message = {
       id: crypto.randomUUID(),
       role: 'system',
@@ -107,9 +113,12 @@ export class ChatAgent extends Agent<Env, ChatState> {
       isSystemLog: true,
       level
     };
+    const workflow = { ...this.state.workflow };
+    workflow.scriptLogs = [...workflow.scriptLogs, formattedLog].slice(-50);
     this.setState({
       ...this.state,
-      messages: [...this.state.messages, log].slice(-200)
+      messages: [...this.state.messages, log].slice(-200),
+      workflow
     });
   }
   private pushAuditLog(level: AuditLog['level'], message: string, metadata: Record<string, any> = {}) {
@@ -125,116 +134,135 @@ export class ChatAgent extends Agent<Env, ChatState> {
       auditLogs: [log, ...this.state.auditLogs].slice(0, 100)
     });
   }
-  private async simulateSelfHealing() {
-    const ft = { ...this.state.faultTolerance };
-    const stats = { ...this.state.resilience };
-    if (stats.consecutiveFailures > 0) {
-      ft.primaryPathActive = false;
-      ft.secondaryPathActive = true;
-      this.pushAuditLog('Recovery', 'Failover to secondary path triggered by consecutive failures', { failures: stats.consecutiveFailures });
-      this.emitSystemLog('WARN', 'Primary validation failed. Engaging secondary redundant path.');
-      this.setState({ ...this.state, faultTolerance: ft });
-    }
-  }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const method = request.method;
     if (method === 'GET' && url.pathname === '/messages') {
       return Response.json({ success: true, data: this.state });
     }
-    if (method === 'GET' && url.pathname === '/audit') {
-      return Response.json({ success: true, data: this.state.auditLogs });
-    }
     if (method === 'POST' && url.pathname === '/chat') {
       const body = await request.json() as { message: string, model?: string };
       return this.handleChatMessage(body);
     }
-    if (method === 'POST' && url.pathname === '/research') {
-      const body = await request.json() as { question: string };
-      return this.handleResearch(body.question);
-    }
     if (method === 'POST' && url.pathname === '/workflow') {
-      const body = await request.json() as { action: string };
-      return this.handleWorkflow(body.action);
+      const body = await request.json() as { action: string, args?: Record<string, any> };
+      return this.handleWorkflow(body.action, body.args);
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
-  private async handleResearch(question: string): Promise<Response> {
-    this.emitSystemLog('INFO', `Research engine triggered: ${question}`);
-    const queryResult: ResearchQuery = {
-      id: `RES-${crypto.randomUUID().slice(0, 8)}`,
-      question,
-      status: 'Resolved',
-      confidence: 94,
-      results: `Analysis of ${question} suggests optimal subshell stability on aarch64 architectures when using Node.js v20+. Integrated validation patterns show 12% improvement in build integrity.`,
-      sources: ['infra_v2_spec', 'termux_hardened_kernel'],
-      timestamp: Date.now()
-    };
-    this.setState({
-      ...this.state,
-      researchHistory: [queryResult, ...this.state.researchHistory].slice(0, 50)
-    });
-    this.pushAuditLog('Info', `Research synthesized for: ${question.slice(0, 30)}...`, { queryId: queryResult.id });
-    return Response.json({ success: true, data: queryResult });
-  }
-  private async handleWorkflow(action: string): Promise<Response> {
+  private async handleWorkflow(action: string, args?: Record<string, any>): Promise<Response> {
+    if (action === 'deploy-github') return this.simulateGithubDeploy(args?.branch || 'main', args?.remote || 'origin');
+    if (action === 'superuser-v2') return this.simulateSuperuserWorkflow();
+    if (action === 'rollback') return this.simulateRollback(args?.snapshotId);
+    // Default legacy sync
     const workflow = { ...this.state.workflow };
     this.emitSystemLog('GIT_COMMIT', `Workflow action: ${action}`);
-    if (action === 'sync') {
-      workflow.pipelineStatus = 'Validating';
-      this.pushAuditLog('Git_Op', 'Synchronizing repository with remote origin', { branch: workflow.currentBranch });
-    } else if (action === 'deploy') {
-      workflow.pipelineStatus = 'Deploying';
-      this.pushAuditLog('Deploy', 'Production deployment sequence initiated', { version: workflow.version });
-    }
+    workflow.pipelineStatus = 'Validating';
     this.setState({ ...this.state, workflow });
-    // Simulate async progress
     setTimeout(() => {
       const finalWorkflow = { ...this.state.workflow };
       finalWorkflow.pipelineStatus = 'Idle';
       this.setState({ ...this.state, workflow: finalWorkflow });
-      this.emitSystemLog('INFO', `Workflow action ${action} completed successfully.`);
-    }, 3000);
-    return Response.json({ success: true, data: this.state.workflow });
+      this.emitSystemLog('INFO', `Workflow action ${action} completed.`);
+    }, 2000);
+    return Response.json({ success: true });
+  }
+  private async simulateSuperuserWorkflow(): Promise<Response> {
+    this.emitSystemLog('INFO', 'Executing git_superuser_workflow v2.2...');
+    const workflow = { ...this.state.workflow };
+    workflow.pipelineStatus = 'Validating';
+    workflow.executionStep = 'CheckingVars';
+    this.setState({ ...this.state, workflow });
+    this.emitSystemLog('INFO', `Checking environment: PROJECTS_DIR=${this.state.systemEnv.PROJECTS_DIR}`);
+    setTimeout(() => {
+      this.updateWorkflowStep('ValidatingBuild');
+      this.emitSystemLog('INFO', 'Running validate_build --gate-v3...');
+    }, 1000);
+    setTimeout(() => {
+      this.updateWorkflowStep('AutoFixing');
+      this.emitSystemLog('GATE_PASS', 'Syntax integrity verified. Auto-fixing lint warnings...');
+    }, 2500);
+    setTimeout(() => {
+      this.updateWorkflowStep('Snapshotting');
+      this.emitSystemLog('INFO', 'Build successful. Generating infrastructure snapshot...');
+      this.pushAuditLog('Deploy', 'Automated snapshot created via superuser v2.2');
+    }, 4000);
+    setTimeout(() => {
+      const finalWorkflow = { ...this.state.workflow };
+      finalWorkflow.pipelineStatus = 'Idle';
+      finalWorkflow.executionStep = 'Idle';
+      finalWorkflow.lastCommitHash = Math.random().toString(16).slice(2, 10);
+      this.setState({ ...this.state, workflow: finalWorkflow });
+      this.emitSystemLog('INFO', 'Git Superuser Workflow v2.2 finished successfully.');
+    }, 6000);
+    return Response.json({ success: true });
+  }
+  private async simulateGithubDeploy(branch: string, remote: string): Promise<Response> {
+    this.emitSystemLog('INFO', `Initializing deploy_github to ${remote}/${branch}...`);
+    const workflow = { ...this.state.workflow };
+    workflow.pipelineStatus = 'GitHubDeploying';
+    workflow.executionStep = 'Pushing';
+    this.setState({ ...this.state, workflow });
+    setTimeout(() => {
+      this.emitSystemLog('INFO', 'Pre-push gate check: set -euo pipefail active.');
+      this.emitSystemLog('GIT_COMMIT', 'Auto-committing unstaged infrastructure metadata...');
+    }, 1000);
+    setTimeout(() => {
+      this.emitSystemLog('INFO', `Pushing to ${remote} ${branch}...`);
+    }, 2500);
+    setTimeout(() => {
+      const finalWorkflow = { ...this.state.workflow };
+      finalWorkflow.pipelineStatus = 'Idle';
+      finalWorkflow.executionStep = 'Idle';
+      finalWorkflow.lastGithubPush = Date.now();
+      this.setState({ ...this.state, workflow: finalWorkflow });
+      this.emitSystemLog('GATE_PASS', `Successfully deployed to GitHub: ${remote}/${branch}`);
+      this.pushAuditLog('Git_Op', `GitHub push complete: ${remote}/${branch}`);
+    }, 4500);
+    return Response.json({ success: true });
+  }
+  private async simulateRollback(snapshotId?: string): Promise<Response> {
+    const id = snapshotId || `SNP-${Math.floor(Math.random() * 1000 + 900)}`;
+    this.emitSystemLog('WARN', `Executing infrastructure rollback to ${id}...`);
+    const workflow = { ...this.state.workflow };
+    workflow.pipelineStatus = 'RollingBack';
+    this.setState({ ...this.state, workflow });
+    setTimeout(() => {
+      this.emitSystemLog('INFO', 'Integrity check on snapshot archive: PASSED');
+      this.emitSystemLog('RECOVERY', 'Extracting tar.gz to $PROJECTS_DIR...');
+    }, 1500);
+    setTimeout(() => {
+      const finalWorkflow = { ...this.state.workflow };
+      finalWorkflow.pipelineStatus = 'Idle';
+      finalWorkflow.lastRollback = { timestamp: Date.now(), snapshotId: id };
+      this.setState({ ...this.state, workflow: finalWorkflow });
+      this.emitSystemLog('GATE_PASS', 'System state successfully restored.');
+      this.pushAuditLog('Recovery', `Rollback completed to ${id}`);
+    }, 3500);
+    return Response.json({ success: true });
+  }
+  private updateWorkflowStep(step: WorkflowState['executionStep']) {
+    const workflow = { ...this.state.workflow, executionStep: step };
+    this.setState({ ...this.state, workflow });
   }
   private async handleChatMessage(body: { message: string, model?: string }): Promise<Response> {
     const { message } = body;
-    await this.simulateSelfHealing();
-    const triggeredSkills = this.state.skills
-      .filter(s => new RegExp(s.triggerRegex, 'i').test(message))
-      .map(s => s.id);
-    if (triggeredSkills.length > 0) {
-      this.pushAuditLog('Skill_Activate', `Skills triggered: ${triggeredSkills.join(', ')}`, { trigger: message });
-      this.emitSystemLog('DEBUG', `Triggered dynamic skills: ${triggeredSkills.join(', ')}`);
-    }
     const userMessage = createMessage('user', message);
     this.setState({
       ...this.state,
       messages: [...this.state.messages, userMessage],
-      activeSkills: triggeredSkills,
       isProcessing: true
     });
     try {
-      const response = await this.chatHandler!.processMessage(
-        message,
-        this.state.messages,
-        undefined,
-        triggeredSkills,
-        this.state.skills
-      );
-      const assistantMessage: Message = {
-        ...createMessage('assistant', response.content, response.toolCalls),
-        skillInsight: triggeredSkills.join(', ')
-      };
+      const response = await this.chatHandler!.processMessage(message, this.state.messages);
+      const assistantMessage: Message = createMessage('assistant', response.content, response.toolCalls);
       this.setState({
         ...this.state,
         messages: [...this.state.messages, assistantMessage],
         isProcessing: false
       });
-      this.emitSystemLog('INFO', 'Agent response synthesized via LLM.');
       return Response.json({ success: true, data: this.state });
     } catch (error) {
-      this.emitSystemLog('ERROR', `LLM processing failed: ${error instanceof Error ? error.message : 'Unknown'}`);
       this.setState({ ...this.state, isProcessing: false });
       return Response.json({ success: false, error: 'Processing error' }, { status: 500 });
     }

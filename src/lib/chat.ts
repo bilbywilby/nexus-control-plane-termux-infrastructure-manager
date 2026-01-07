@@ -1,4 +1,4 @@
-import type { Message, ChatState, ToolCall, WeatherResult, MCPResult, ErrorResult, SessionInfo, ResearchQuery, WorkflowState } from '../../worker/types';
+import type { Message, ChatState, ToolCall, SessionInfo, ResearchQuery, WorkflowState } from '../../worker/types';
 export interface ChatResponse {
   success: boolean;
   data?: ChatState;
@@ -28,26 +28,17 @@ class ChatService {
         body: JSON.stringify({ message, model, stream: !!onChunk }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      if (onChunk && response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            if (chunk) onChunk(chunk);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-        return { success: true };
-      }
       return await response.json();
     } catch (error) {
       console.error('Failed to send message:', error);
       return { success: false, error: 'Failed to send message' };
     }
+  }
+  async deployToGithub(branch: string = 'main', remote: string = 'origin'): Promise<{ success: boolean; error?: string }> {
+    return this.triggerWorkflowAction('deploy-github', { branch, remote });
+  }
+  async executeRollback(snapshotId?: string): Promise<{ success: boolean; error?: string }> {
+    return this.triggerWorkflowAction('rollback', { snapshotId });
   }
   async conductResearch(question: string): Promise<{ success: boolean; data?: ResearchQuery; error?: string }> {
     try {
@@ -61,12 +52,12 @@ class ChatService {
       return { success: false, error: 'Research engine offline' };
     }
   }
-  async triggerWorkflowAction(action: string): Promise<{ success: boolean; data?: WorkflowState; error?: string }> {
+  async triggerWorkflowAction(action: string, args?: Record<string, any>): Promise<{ success: boolean; data?: WorkflowState; error?: string }> {
     try {
-      const response = await fetch(`/api/workflow/${this.sessionId}`, {
+      const response = await fetch(`${this.baseUrl}/workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, args }),
       });
       return await response.json();
     } catch (error) {
@@ -94,29 +85,15 @@ class ChatService {
   getSessionId(): string {
     return this.sessionId;
   }
-  newSession(): void {
-    this.sessionId = crypto.randomUUID();
-    this.baseUrl = `/api/chat/${this.sessionId}`;
-  }
-  switchSession(sessionId: string): void {
-    this.sessionId = sessionId;
-    this.baseUrl = `/api/chat/${sessionId}`;
-  }
 }
 export const chatService = new ChatService();
-export const formatTime = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
 export const renderToolCall = (toolCall: ToolCall): string => {
   const result = toolCall.result;
   if (result === undefined || result === null) {
     return `⏳ ${toolCall.name}: Pending...`;
   }
   if (typeof result === 'object' && 'error' in (result as any)) {
-    return `��� ${toolCall.name}: ${(result as any).error}`;
+    return `❌ ${toolCall.name}: ${(result as any).error}`;
   }
-  if (typeof result === 'object' && 'content' in (result as any)) {
-    return `✅ ${toolCall.name}: Success`;
-  }
-  return `📦 ${toolCall.name}: Complete`;
+  return `✅ ${toolCall.name}: Success`;
 };

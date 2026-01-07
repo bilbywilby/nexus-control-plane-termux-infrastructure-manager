@@ -32,9 +32,13 @@ export interface ToolCall {
 export interface WorkflowState {
   currentBranch: string;
   lastCommitHash: string;
-  pipelineStatus: 'Idle' | 'Building' | 'Validating' | 'Deploying' | 'Failed';
+  pipelineStatus: 'Idle' | 'Building' | 'Validating' | 'Deploying' | 'Failed' | 'RollingBack' | 'GitHubDeploying';
   version: string;
   changelog: string[];
+  scriptLogs: string[];
+  lastGithubPush?: number;
+  lastRollback?: { timestamp: number; snapshotId: string };
+  executionStep?: 'Idle' | 'CheckingVars' | 'ValidatingBuild' | 'AutoFixing' | 'Snapshotting' | 'Pushing';
 }
 export interface PluginItem {
   id: string;
