@@ -88,7 +88,9 @@ export class ChatAgent extends Agent<Env, ChatState> {
       redundantSnapshotsCount: 3
     },
     researchHistory: [],
-    auditLogs: [],
+    auditLogs: [
+      { id: 'EVT-000', level: 'Info', message: 'System warm-boot complete.', timestamp: new Date().toISOString(), metadata: { node: 'NEXUS_ALPHA' } }
+    ],
     reporting: {
       totalOperations: 14282,
       avgLatency: 22,
@@ -142,8 +144,26 @@ export class ChatAgent extends Agent<Env, ChatState> {
     this.emitSystemLog('INFO', 'Nexus node initialized with Structured Infrastructure v3.');
   }
   private emitSystemLog(level: LogLevel, content: string, intentMatch?: string) {
-    const log: Message = { id: crypto.randomUUID(), role: 'system', content, timestamp: Date.now(), isSystemLog: true, level, intentMatch };
-    this.setState({ ...this.state, messages: [...this.state.messages, log].slice(-200) });
+    const timestamp = Date.now();
+    const log: Message = { id: crypto.randomUUID(), role: 'system', content, timestamp, isSystemLog: true, level, intentMatch };
+    // Map system level to AuditLog level
+    let auditLevel: AuditLog['level'] = 'Info';
+    if (level === 'ERROR' || level === 'FATAL') auditLevel = 'Error';
+    if (level === 'WARN') auditLevel = 'Warning';
+    if (level === 'RECOVERY') auditLevel = 'Recovery';
+    if (level === 'GATE_PASS') auditLevel = 'Gate_Pass';
+    const auditEntry: AuditLog = {
+      id: `EVT-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      level: auditLevel,
+      message: content,
+      timestamp: new Date(timestamp).toISOString(),
+      metadata: intentMatch ? JSON.parse(intentMatch) : {}
+    };
+    this.setState({ 
+      ...this.state, 
+      messages: [...this.state.messages, log].slice(-200),
+      auditLogs: [auditEntry, ...this.state.auditLogs].slice(0, 100)
+    });
   }
   private evaluateIntentV3(query: string): { skillId: string; rank: number }[] {
     const scores = this.state.skills.map(skill => {
@@ -171,11 +191,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
       status: checks.some(c => c.status === 'Fail') ? 'Fail' : 'Pass',
       timestamp: Date.now(),
       checks,
-      systemContext: {
-        bashVersion: '5.2.26',
-        nodeVersion: 'v20.12.0',
-        arch: 'aarch64'
-      }
+      systemContext: { bashVersion: '5.2.26', nodeVersion: 'v20.12.0', arch: 'aarch64' }
     };
   }
   async onRequest(request: Request): Promise<Response> {
@@ -188,12 +204,31 @@ export class ChatAgent extends Agent<Env, ChatState> {
     }
     if (request.method === 'POST' && url.pathname === '/validate') {
       const report = this.simulateValidationV3();
-      await this.setState({ 
-        ...this.state, 
-        workflow: { ...this.state.workflow, lastValidationReport: report }
-      });
+      await this.setState({ ...this.state, workflow: { ...this.state.workflow, lastValidationReport: report } });
       this.emitSystemLog('GATE_PASS', `Validation v3 complete: ${report.status}`, JSON.stringify(report));
       return Response.json({ success: true, data: report });
+    }
+    if (request.method === 'POST' && url.pathname === '/research') {
+      const { question } = await request.json() as { question: string };
+      const newResearch: ResearchQuery = {
+        id: `RES-${Date.now().toString().slice(-6)}`,
+        question,
+        status: 'Resolved',
+        confidence: 85 + Math.random() * 10,
+        results: `Synthesized architecture for ${question}. Recommend applying R2-Sync for persistence and Triple-Snapshot rotation for integrity.`,
+        sources: ['nexus-docs-v3', 'termux-internal-api', 'claudemindmap-2024'],
+        timestamp: Date.now()
+      };
+      await this.setState({ ...this.state, researchHistory: [newResearch, ...this.state.researchHistory] });
+      return Response.json({ success: true, data: newResearch });
+    }
+    if (request.method === 'POST' && url.pathname === '/workflow') {
+      const { action } = await request.json() as { action: string };
+      this.emitSystemLog('GIT_OP', `Workflow Action Triggered: ${action}`);
+      return Response.json({ success: true, data: this.state.workflow });
+    }
+    if (request.method === 'GET' && url.pathname === '/audit') {
+      return Response.json({ success: true, data: this.state.auditLogs });
     }
     return Response.json({ success: false, error: 'Not Found' }, { status: 404 });
   }
@@ -202,8 +237,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
     const rankedIntents = this.evaluateIntentV3(message);
     if (rankedIntents.length > 0) {
       const topMatch = rankedIntents[0];
-      const matchData = JSON.stringify(topMatch);
-      this.emitSystemLog('INTENT_MATCH', `Fuzzy match: ${topMatch.skillId} (Rank: ${topMatch.rank.toFixed(2)})`, matchData);
+      this.emitSystemLog('INTENT_MATCH', `Fuzzy match: ${topMatch.skillId} (Rank: ${topMatch.rank.toFixed(2)})`, JSON.stringify(topMatch));
       const suggested = [topMatch.skillId];
       const newActive = Array.from(new Set([...this.state.activeSkills, ...suggested]));
       await this.setState({ ...this.state, suggestedSkills: suggested, activeSkills: newActive });

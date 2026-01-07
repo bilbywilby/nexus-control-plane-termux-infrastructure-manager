@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cpu, Shield, Globe, Terminal, Zap, Layers, Brain, Box, Share2, ShieldCheck, FileText, Code2, ShoppingBag, ExternalLink, Download, Target, Play, Sparkles, HelpCircle, ArrowRight, TrendingUp } from 'lucide-react';
+import { Cpu, Shield, Globe, Terminal, Zap, Layers, Brain, Box, Share2, ShieldCheck, FileText, Code2, ShoppingBag, ExternalLink, Download, Target, Play, Sparkles, HelpCircle, ArrowRight, TrendingUp, FileJson } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
 import type { Skill } from '../../../worker/types';
@@ -19,14 +19,13 @@ export function SkillsView() {
       if (res.success && res.data) {
         setSkills(res.data.skills);
         setSuggestedSkills(res.data.suggestedSkills || []);
-        // Only set default if nothing selected
         if (!selectedSkillId && res.data.skills.length > 0) {
           setSelectedSkillId(res.data.skills[0].id);
         }
       }
     };
     fetchSkills();
-  }, [selectedSkillId]); // Fixes dependency lint while avoiding loop through state guard
+  }, [selectedSkillId]);
   const currentSkill = skills.find(s => s.id === selectedSkillId);
   const handleRunHook = (hook: string) => {
     toast.info(`Executing skill hook: ${hook}...`);

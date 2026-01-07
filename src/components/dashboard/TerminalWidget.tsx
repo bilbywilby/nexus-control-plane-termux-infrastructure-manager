@@ -54,34 +54,38 @@ export function TerminalWidget() {
     setExpandedLogs(next);
   };
   const renderContent = (m: Message) => {
-    const isJson = m.intentMatch && (m.intentMatch.startsWith('{') || m.intentMatch.startsWith('['));
-    if (isJson) {
-      const isExpanded = expandedLogs.has(m.id);
-      const data = JSON.parse(m.intentMatch!);
-      return (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 cursor-pointer hover:bg-white/5 p-0.5 rounded" onClick={() => toggleLog(m.id)}>
-            {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            <span className={cn("uppercase font-bold text-emerald-500")}>
-              {m.role === 'user' ? 'LOCAL_OP>' : 'NEXUS_AGENT>'}
-            </span>
-            <span className="text-cyan-400 font-bold">{m.content}</span>
-            <Badge className="bg-cyan-500/10 text-cyan-500 border-none text-[8px] h-3.5 px-1">STRUCTURED_DATA</Badge>
-          </div>
-          {isExpanded && (
-            <div className="ml-6 p-2 bg-black/50 border border-white/5 rounded font-mono text-[10px]">
-               <pre className="text-zinc-400 whitespace-pre">
-                 {JSON.stringify(data, null, 2).split('\n').map((line, i) => (
-                   <div key={i}>
-                     <span className="text-cyan-900 mr-2">{i+1}</span>
-                     <span className={line.includes(':') ? 'text-cyan-600' : 'text-emerald-500'}>{line}</span>
-                   </div>
-                 ))}
-               </pre>
+    const isJsonAttempt = m.intentMatch && (m.intentMatch.startsWith('{') || m.intentMatch.startsWith('['));
+    if (isJsonAttempt) {
+      try {
+        const data = JSON.parse(m.intentMatch!);
+        const isExpanded = expandedLogs.has(m.id);
+        return (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 cursor-pointer hover:bg-white/5 p-0.5 rounded" onClick={() => toggleLog(m.id)}>
+              {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              <span className={cn("uppercase font-bold text-emerald-500")}>
+                {m.role === 'user' ? 'LOCAL_OP>' : 'NEXUS_AGENT>'}
+              </span>
+              <span className="text-cyan-400 font-bold">{m.content}</span>
+              <Badge className="bg-cyan-500/10 text-cyan-500 border-none text-[8px] h-3.5 px-1">STRUCTURED_DATA</Badge>
             </div>
-          )}
-        </div>
-      );
+            {isExpanded && (
+              <div className="ml-6 p-2 bg-black/50 border border-white/5 rounded font-mono text-[10px]">
+                 <pre className="text-zinc-400 whitespace-pre">
+                   {JSON.stringify(data, null, 2).split('\n').map((line, i) => (
+                     <div key={i}>
+                       <span className="text-cyan-900 mr-2">{i+1}</span>
+                       <span className={line.includes(':') ? 'text-cyan-600' : 'text-emerald-500'}>{line}</span>
+                     </div>
+                   ))}
+                 </pre>
+              </div>
+            )}
+          </div>
+        );
+      } catch (e) {
+        // Parsing failed, fallback to standard log
+      }
     }
     return (
       <div className="flex gap-3 text-[11px] leading-relaxed group">
