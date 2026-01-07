@@ -7,6 +7,7 @@ import { Terminal, Send, Trash2, Zap, WifiOff, Clock } from 'lucide-react';
 import type { Message, LogLevel } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 import { useNetwork } from '@/hooks/use-network';
+import { toast } from 'sonner';
 export function TerminalWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -42,6 +43,36 @@ export function TerminalWidget() {
     const lastMsg = messages[messages.length - 1];
     if (lastMsg?.skillInsight) setActiveContext(lastMsg.skillInsight.toUpperCase());
   }, [messages]);
+  const handleCustomCommand = async (cmd: string) => {
+    const parts = cmd.split(' ');
+    const base = parts[0];
+    if (base === 'git-rollback') {
+      const snapId = parts[1];
+      await chatService.executeRollback(snapId);
+      toast.info(`Executing git-rollback ${snapId || 'latest'}...`);
+      return true;
+    }
+    if (base === 'git-deploy-gh') {
+      const branch = parts[1] || 'main';
+      const remote = parts[2] || 'origin';
+      await chatService.deployToGithub(branch, remote);
+      toast.info(`Executing git-deploy-gh to ${remote}/${branch}...`);
+      return true;
+    }
+    if (base === 'help') {
+      const helpMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'system',
+        content: 'Available Commands:\n- git-rollback [snapshot_id]: Restore system state\n- git-deploy-gh [branch] [remote]: Push to GitHub\n- nexus-gate --verify: Integrity check\n- help: Show this menu',
+        timestamp: Date.now(),
+        isSystemLog: true,
+        level: 'INFO'
+      };
+      setMessages(prev => [...prev, helpMsg]);
+      return true;
+    }
+    return false;
+  };
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     const userMsg = input.trim();
@@ -54,6 +85,8 @@ export function TerminalWidget() {
       isQueued: !isOnline
     };
     setMessages(prev => [...prev, tempMessage]);
+    const wasHandled = await handleCustomCommand(userMsg);
+    if (wasHandled) return;
     if (!isOnline) return;
     setIsLoading(true);
     await chatService.sendMessage(userMsg);
@@ -81,10 +114,6 @@ export function TerminalWidget() {
         return 'text-cyan-500';
       case 'GIT_COMMIT':
         return 'text-cyan-400';
-      case 'DEPLOYMENT_START':
-        return 'text-purple-400';
-      case 'DEBUG':
-        return 'text-zinc-600';
       default:
         return 'text-zinc-400';
     }
@@ -94,10 +123,10 @@ export function TerminalWidget() {
       <div className="bg-zinc-900/80 px-4 py-2 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-emerald-500" />
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Nexus_Shell_v2.0</span>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Nexus_Shell_v2.2</span>
           {!isOnline && (
             <Badge variant="outline" className="bg-red-500/20 text-red-500 border-red-500/30 text-[8px] h-4 ml-2">
-              OFFLINE_MODE
+              OFFLINE
             </Badge>
           )}
         </div>
@@ -107,17 +136,12 @@ export function TerminalWidget() {
               <Zap className="w-3 h-3" /> CONTEXT: {activeContext}
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClear}
-            className="h-6 w-6 text-zinc-500 hover:text-destructive"
-          >
+          <Button variant="ghost" size="icon" onClick={handleClear} className="h-6 w-6 text-zinc-500 hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#020202] scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#020202]">
         {messages.map((m) => (
           <div key={m.id} className="flex gap-3 text-[11px] leading-relaxed group">
             <span className="text-zinc-700 shrink-0">
@@ -156,12 +180,15 @@ export function TerminalWidget() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={isOnline ? "Enter system command..." : "Offline - Commands will queue..."}
+            placeholder={isOnline ? "Enter system command... (type 'help')" : "Offline - Commands will queue..."}
             className="flex-1 bg-transparent border-none focus-visible:ring-0 text-zinc-300 text-[11px] h-9"
           />
           <Button size="icon" variant="ghost" onClick={handleSend} disabled={isLoading} className="text-emerald-500 h-8 w-8 hover:bg-emerald-500/10">
             <Send className="h-3.5 w-3.5" />
           </Button>
+        </div>
+        <div className="mt-1 flex justify-end px-1">
+           <span className="text-[8px] font-mono text-zinc-700 uppercase">log output: ${this?.state?.systemEnv?.LOG_FILE || '.nexus/sys.log'}</span>
         </div>
       </div>
     </div>

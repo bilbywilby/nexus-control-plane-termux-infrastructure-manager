@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Search, Terminal, Cpu, Shield, Book, ChevronRight, Copy, Check, FileText } from 'lucide-react';
+import { Search, Terminal, Cpu, Shield, Book, ChevronRight, Copy, Check, FileText, GitBranch, Github } from 'lucide-react';
 import { toast } from 'sonner';
 const docs = [
   {
@@ -14,29 +14,44 @@ const docs = [
     content: 'Nexus is a high-performance orchestrator for Termux-based autonomous environments. It utilizes a triple-gate validation system to ensure build integrity before committing snapshots.'
   },
   {
+    id: 'superuser-v2',
+    category: 'Git/Workflow',
+    title: 'Git Superuser v2.2',
+    icon: <GitBranch className="w-4 h-4" />,
+    content: 'The v2.2 Superuser Workflow is designed for high-integrity automation in Termux. It implements `set -euo pipefail` standards to ensure zero-error propagation.\n\nKey Stages:\n1. Env Validation: Checks $PROJECTS_DIR and $BIN_DIR presence.\n2. Validation Gate: Runs `validate_build --fix` to ensure no syntax/lint errors.\n3. Snapshot: Creates a rolling backup of the projects directory before final commit.\n4. Failover: Suggests immediate rollback if build integrity fails.'
+  },
+  {
+    id: 'deploy-gh',
+    category: 'Git/Workflow',
+    title: 'GitHub Deployment',
+    icon: <Github className="w-4 h-4" />,
+    content: 'Automated GitHub push utility that ensures all local changes are committed and the build passes the gate before pushing to the specified remote/branch.\n\nStandard usage: `nexus-deploy-gh [branch] [remote]`\nDefault: `main origin`'
+  },
+  {
     id: 'cli',
     category: 'Terminal',
     title: 'CLI References',
     icon: <Terminal className="w-4 h-4" />,
     commands: [
       { cmd: 'nexus-gate --verify', desc: 'Runs triple-path integrity scan' },
-      { cmd: 'nexus-skill --load <id>', desc: 'Dynamically links a skill module' },
-      { cmd: 'nexus-snapshot --commit', desc: 'Archives current node state' }
+      { cmd: 'nexus-superuser-v2', desc: 'Executes the full Git Superuser automation' },
+      { cmd: 'nexus-deploy-gh main origin', desc: 'Push validated state to GitHub' },
+      { cmd: 'nexus-rollback SNP-001', desc: 'Restores system to a specific snapshot' }
     ]
   },
   {
-    id: 'plugin-api',
-    category: 'Extensibility',
-    title: 'Plugin API Guide',
+    id: 'portability',
+    category: 'Environment',
+    title: 'Termux Portability',
     icon: <Cpu className="w-4 h-4" />,
-    content: 'Plugins are stored in `.plugins/`. Every plugin must export a `verify()` and `execute()` method. The skill matrix detects these automatically via regex triggers.'
+    content: 'All nexus scripts are built for BusyBox and Termux compatibility. We use standard POSIX shell utilities where possible, avoiding bash-isms that break in minimal environments.\n\nNode Path: `/data/data/com.termux/files/home`'
   },
   {
     id: 'security',
     category: 'Hardening',
-    title: 'Security SOP',
+    title: 'Hardening Standards',
     icon: <Shield className="w-4 h-4" />,
-    content: 'Mandatory RSA/PEM scanning on all commits. Pre-commit hooks are enforced at the hardware level in Termux environments.'
+    content: '1. `set -euo pipefail` is mandatory in all infrastructure scripts.\n2. RSA/PEM scanning on all commits.\n3. Pre-commit hooks are enforced at the hardware level in Termux environments.'
   }
 ];
 export function DocumentationView() {
@@ -52,7 +67,7 @@ export function DocumentationView() {
       <div className="lg:col-span-1 space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-          <Input 
+          <Input
             className="bg-zinc-900 border-white/10 pl-10 h-10 text-xs font-mono"
             placeholder="Search docs..."
             value={search}
@@ -109,7 +124,7 @@ export function DocumentationView() {
                           <code className="text-emerald-400 text-xs font-mono">$ {c.cmd}</code>
                           <span className="text-[10px] text-zinc-600 mt-1 font-mono">{c.desc}</span>
                         </div>
-                        <button 
+                        <button
                           onClick={() => copyToClipboard(c.cmd)}
                           className="p-2 rounded-md hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
                         >
@@ -117,15 +132,6 @@ export function DocumentationView() {
                         </button>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-              {currentDoc.id === 'intro' && (
-                <div className="mt-12 p-6 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-start gap-4">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg"><Check className="w-4 h-4 text-emerald-500" /></div>
-                  <div>
-                    <h4 className="text-sm font-bold text-emerald-500 mb-1">Environment Readiness</h4>
-                    <p className="text-xs text-zinc-500 font-mono leading-relaxed">Your current node (TERMUX_ALPHA) meets all hardware requirements for Phase 7 operations. Git synchronization is active.</p>
                   </div>
                 </div>
               )}
