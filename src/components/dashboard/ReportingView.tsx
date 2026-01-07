@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { Download, FileBarChart, Loader2, Zap, Shield, Database, Activity } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 const performanceData = [
   { day: 'Mon', passRate: 98.2, recoveryTime: 12 },
   { day: 'Tue', passRate: 99.1, recoveryTime: 8 },
@@ -72,7 +73,7 @@ export function ReportingView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                 <XAxis dataKey="day" stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} />
                 <YAxis stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} domain={[95, 100]} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '10px' }}
                 />
                 <Area type="monotone" dataKey="passRate" stroke="#10b981" fill="url(#colorPass)" strokeWidth={2} />
@@ -90,7 +91,7 @@ export function ReportingView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                 <XAxis dataKey="day" stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} />
                 <YAxis stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '10px' }}
                 />
                 <Line type="monotone" dataKey="recoveryTime" stroke="#ef4444" strokeWidth={2} dot={{ r: 4, fill: '#ef4444' }} />

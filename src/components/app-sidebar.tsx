@@ -9,7 +9,8 @@ import {
   Server,
   ScrollText,
   FileBarChart,
-  LifeBuoy
+  LifeBuoy,
+  ShieldCheck
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,7 +33,7 @@ export function AppSidebar(): JSX.Element {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-zinc-100">NEXUS CORE</span>
-            <span className="text-[10px] font-mono text-emerald-500/70 leading-none">V 1.0.42-STABLE</span>
+            <span className="text-[10px] font-mono text-emerald-500/70 leading-none uppercase tracking-tighter">V 1.0.42-STABLE</span>
           </div>
         </div>
       </SidebarHeader>
@@ -61,17 +62,32 @@ export function AppSidebar(): JSX.Element {
           <SidebarGroupLabel className="text-zinc-500 text-[10px] uppercase tracking-widest font-mono mb-2">System Health</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <div className="px-3 py-2 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-zinc-400">DISK: 4.2GB / 10GB</span>
-                  <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="px-3 py-2 space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-mono text-zinc-400">DISK: 4.2GB / 10GB</span>
+                    <span className="text-[9px] font-mono text-emerald-500">42%</span>
+                  </div>
+                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-emerald-500 w-[42%] transition-all duration-500" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-zinc-400">LOAD: 12%</span>
-                  <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-mono text-zinc-400">LOAD: 12%</span>
+                    <span className="text-[9px] font-mono text-cyan-500">STABLE</span>
+                  </div>
+                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-cyan-500 w-[12%] transition-all duration-500" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-mono text-zinc-400">AVG BUILD TIME</span>
+                    <span className="text-[9px] font-mono text-zinc-500">42s</span>
+                  </div>
+                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-zinc-500 w-[65%] transition-all duration-500" />
                   </div>
                 </div>
               </div>
@@ -80,17 +96,20 @@ export function AppSidebar(): JSX.Element {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-white/5 p-4 bg-zinc-950/50">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          <span className="text-[10px] font-mono text-zinc-400">GATEWAY_CONNECTED</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
+            <span className="text-[9px] font-mono text-emerald-500/80 uppercase font-bold tracking-tighter">Gateway_Secure</span>
+          </div>
+          <ShieldCheck className="w-4 h-4 text-emerald-500 opacity-60" />
         </div>
-        <div className="flex items-center justify-between text-zinc-600 mt-2">
+        <div className="flex items-center justify-between text-zinc-600">
           <Settings className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
           <LifeBuoy className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
           <Activity className="w-3.5 h-3.5 hover:text-zinc-300 cursor-pointer" />
         </div>
-        <div className="mt-4 text-center">
-          <span className="text-[8px] font-mono text-zinc-700 hover:text-zinc-500 cursor-pointer uppercase">Build History v1.0.42</span>
+        <div className="mt-4 pt-2 border-t border-white/5 text-center">
+          <span className="text-[8px] font-mono text-zinc-700 hover:text-zinc-500 cursor-pointer uppercase tracking-widest">Build Node: RGC0_ALPHA</span>
         </div>
       </SidebarFooter>
     </Sidebar>

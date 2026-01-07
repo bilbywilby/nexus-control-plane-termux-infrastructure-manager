@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Skill, Message, SkillStatus, ResearchQuery, AuditLog } from './types';
+import type { ChatState, Skill, Message, SkillStatus, AuditLog, LogLevel } from './types';
 import { ChatHandler } from './chat';
 import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
@@ -60,7 +60,20 @@ export class ChatAgent extends Agent<Env, ChatState> {
       uptimeTrend: [99, 98, 99.9, 99.5, 100],
       failureCategories: { 'GATE_TIMEOUT': 12, 'SKILL_LOAD_FAIL': 3 }
     },
-    environment: 'Termux'
+    environment: 'Termux',
+    roadmap: [
+      { id: 'R1', title: 'Core Infrastructure', status: 'completed', progress: 100 },
+      { id: 'R2', title: 'Validation Gate', status: 'completed', progress: 100 },
+      { id: 'R3', title: 'Skill Matrix', status: 'current', progress: 75 },
+      { id: 'R4', title: 'Autonomic Healing', status: 'upcoming', progress: 0 }
+    ],
+    systemEnv: {
+      ARCH: 'aarch64',
+      NODE_VERSION: 'v20.12.0',
+      LOG_FILE: '/data/data/com.termux/files/home/.nexus/sys.log',
+      SHELL: '/usr/bin/bash',
+      U_ID: '772'
+    }
   };
   async onStart(): Promise<void> {
     this.chatHandler = new ChatHandler(
@@ -68,6 +81,21 @@ export class ChatAgent extends Agent<Env, ChatState> {
       this.env.CF_AI_API_KEY,
       this.state.model
     );
+    this.emitSystemLog('INFO', 'Nexus node initialized. Storage path verified.');
+  }
+  private emitSystemLog(level: LogLevel, content: string) {
+    const log: Message = {
+      id: crypto.randomUUID(),
+      role: 'system',
+      content,
+      timestamp: Date.now(),
+      isSystemLog: true,
+      level
+    };
+    this.setState({
+      ...this.state,
+      messages: [...this.state.messages, log].slice(-200)
+    });
   }
   private pushAuditLog(level: AuditLog['level'], message: string, metadata: Record<string, any> = {}) {
     const log: AuditLog = {
@@ -89,14 +117,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
       ft.primaryPathActive = false;
       ft.secondaryPathActive = true;
       this.pushAuditLog('Recovery', 'Failover to secondary path triggered by consecutive failures', { failures: stats.consecutiveFailures });
-      const log: Message = {
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: `[HEAL] Primary validation failed. Failing over...`,
-        timestamp: Date.now(),
-        isSystemLog: true
-      };
-      this.setState({ ...this.state, faultTolerance: ft, messages: [...this.state.messages, log] });
+      this.emitSystemLog('WARN', 'Primary validation failed. Engaging secondary redundant path.');
+      this.setState({ ...this.state, faultTolerance: ft });
     }
   }
   async onRequest(request: Request): Promise<Response> {
@@ -122,6 +144,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
       .map(s => s.id);
     if (triggeredSkills.length > 0) {
       this.pushAuditLog('Skill_Activate', `Skills triggered: ${triggeredSkills.join(', ')}`, { trigger: message });
+      this.emitSystemLog('DEBUG', `Triggered dynamic skills: ${triggeredSkills.join(', ')}`);
     }
     const userMessage = createMessage('user', message);
     this.setState({
@@ -147,8 +170,10 @@ export class ChatAgent extends Agent<Env, ChatState> {
         messages: [...this.state.messages, assistantMessage],
         isProcessing: false
       });
+      this.emitSystemLog('INFO', 'Agent response synthesized via LLM.');
       return Response.json({ success: true, data: this.state });
     } catch (error) {
+      this.emitSystemLog('ERROR', `LLM processing failed: ${error instanceof Error ? error.message : 'Unknown'}`);
       this.setState({ ...this.state, isProcessing: false });
       return Response.json({ success: false, error: 'Processing error' }, { status: 500 });
     }
