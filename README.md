@@ -1,6 +1,6 @@
 # Cloudflare AI Chat Agent Template
 
-[![[cloudflarebutton]]](https://deploy.workers.cloudflare.com/)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/nexus-control-plane-termux-infrastructure-manager)]](https://deploy.workers.cloudflare.com/)
 
 A production-ready full-stack chat application built on Cloudflare Workers. Features persistent multi-session conversations powered by Durable Objects, AI integration via Cloudflare AI Gateway, streaming responses, tool calling (web search, weather), and a modern React UI with session management, dark mode, and responsive design.
 
@@ -119,7 +119,7 @@ curl -X POST /api/chat/<sessionId>/chat \
 
 3. Your app is live! Custom domain via Cloudflare Pages or Workers Sites.
 
-**[cloudflarebutton]**
+**[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/nexus-control-plane-termux-infrastructure-manager)**
 
 **Post-Deploy**:
 - Bind Durable Object namespaces automatically handled
