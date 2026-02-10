@@ -11,7 +11,7 @@ export interface MCPResult {
 export interface ErrorResult {
   error: string;
 }
-export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION' | 'GIT_OP';
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'RECOVERY' | 'GATE_PASS' | 'GIT_COMMIT' | 'DEPLOYMENT_START' | 'INTENT_MATCH' | 'HOOK_EXEC' | 'INTENT_SUGGESTION' | 'GIT_OP' | 'DEPLOY' | 'MCP_TOOL' | 'DAEMON';
 export interface ValidationCheck {
   id: string;
   status: 'Pass' | 'Fail' | 'Warning';
@@ -51,7 +51,7 @@ export interface Message {
   isSystemLog?: boolean;
   isQueued?: boolean;
   level?: LogLevel;
-  intentMatch?: string; // Can be stringified JSON for v3
+  intentMatch?: string; 
 }
 export interface ToolCall {
   id: string;
@@ -70,14 +70,19 @@ export interface WorkflowState {
   lastRollback?: { timestamp: number; snapshotId: string };
   executionStep?: 'Idle' | 'CheckingVars' | 'ValidatingBuild' | 'AutoFixing' | 'Snapshotting' | 'Pushing';
   lastValidationReport?: ValidationReport;
+  artifacts: string[];
+  webhookActive: boolean;
 }
 export interface PluginItem {
   id: string;
   name: string;
   author: string;
   rating: number;
-  status: 'Installed' | 'Available';
+  status: 'Installed' | 'Available' | 'UpdateAvailable';
   loadPath?: string;
+  version: string;
+  category: string;
+  downloads: number;
 }
 export interface SystemAlert {
   id: string;
@@ -109,10 +114,11 @@ export interface Skill {
   };
   weight?: number;
   rank?: number;
+  isMcpPowered?: boolean;
 }
 export interface AuditLog {
   id: string;
-  level: 'Info' | 'Warning' | 'Error' | 'Recovery' | 'Gate_Pass' | 'Skill_Activate' | 'Git_Op' | 'Deploy';
+  level: 'Info' | 'Warning' | 'Error' | 'Recovery' | 'Gate_Pass' | 'Skill_Activate' | 'Git_Op' | 'Deploy' | 'MCP' | 'Daemon';
   message: string;
   timestamp: string;
   metadata: Record<string, any>;
@@ -129,6 +135,8 @@ export interface ReportingMetrics {
   securityScore: number;
   uptimeTrend: number[];
   failureCategories: Record<string, number>;
+  mcpToolCalls: number;
+  daemonSuccessRate: number;
 }
 export interface FaultToleranceStats {
   primaryPathActive: boolean;
@@ -136,6 +144,7 @@ export interface FaultToleranceStats {
   recoverySuccessRate: number;
   uptimeScore: number;
   redundantSnapshotsCount: number;
+  daemonLastRun?: string;
 }
 export interface ResearchQuery {
   id: string;
@@ -153,6 +162,13 @@ export interface ResilienceStats {
   avgLatency: number;
   lastFailureTime?: number;
   consecutiveFailures: number;
+}
+export interface MCPServer {
+  id: string;
+  name: string;
+  status: 'Connected' | 'Error' | 'Initializing';
+  capabilities: string[];
+  latency: number;
 }
 export interface ChatState {
   messages: Message[];
@@ -177,6 +193,7 @@ export interface ChatState {
   infraFiles: InfrastructureFile[];
   agentProfiles: AgentProfile[];
   availableCommands: string[];
+  mcpServers: MCPServer[];
 }
 export interface SessionInfo {
   id: string;

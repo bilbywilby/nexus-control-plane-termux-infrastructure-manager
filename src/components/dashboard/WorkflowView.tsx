@@ -3,14 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitBranch, Github, Play, CheckCircle2, RefreshCw, FileCode, Layers, ArrowRight, ShieldCheck, AlertTriangle, FileJson, Wand2 } from 'lucide-react';
+import { GitBranch, Github, Play, CheckCircle2, RefreshCw, FileCode, Layers, ArrowRight, ShieldCheck, AlertTriangle, FileJson, Wand2, Download, Terminal, Link, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
 import type { WorkflowState, InfrastructureFile, ValidationReport } from '../../../worker/types';
 import { cn } from '@/lib/utils';
 export function WorkflowView() {
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
-  const [infraFiles, setInfraFiles] = useState<InfrastructureFile[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [showJson, setShowJson] = useState(false);
   useEffect(() => {
@@ -18,7 +17,6 @@ export function WorkflowView() {
       const res = await chatService.getMessages();
       if (res.success && res.data) {
         setWorkflow(res.data.workflow);
-        setInfraFiles(res.data.infraFiles.filter(f => f.path.startsWith('.github/workflows/') || f.path.startsWith('bin/')));
       }
     };
     fetchData();
@@ -27,145 +25,138 @@ export function WorkflowView() {
   }, []);
   const handleRunValidation = async () => {
     setIsRunning(true);
-    toast.info("Triggering Structured Validation v3...");
+    toast.info("Triggering GitHub Action Pipeline...");
     const res = await chatService.runValidationV3({ fix: false });
-    if (res.success) {
-      toast.success("Validation report generated.");
-    }
+    if (res.success) toast.success("CI/CD run complete.");
     setTimeout(() => setIsRunning(false), 2000);
-  };
-  const handleAutoFix = async () => {
-    setIsRunning(true);
-    toast.info("Applying --fix to infrastructure...");
-    const res = await chatService.runValidationV3({ fix: true });
-    if (res.success) {
-      toast.success("All fixable checks resolved. Re-run validation to confirm.");
-    }
-    setTimeout(() => setIsRunning(false), 1500);
   };
   const report = workflow?.lastValidationReport;
   return (
-    <div className="space-y-8 animate-fade-in p-4">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12 space-y-8 animate-fade-in">
       <div className="flex items-center justify-between border-b border-white/5 pb-6">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-500" /> Infrastructure Operations v3
+            <Github className="w-5 h-5 text-white" /> CI/CD & Actions Lifecycle
           </h2>
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">Structured Validation & Build Gates</p>
+          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">Expanded Pipeline: PR_Review // DEP_AUDIT // DOCS</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            onClick={handleRunValidation}
-            disabled={isRunning}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs"
-          >
+          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded font-mono text-[9px] text-emerald-500">
+            <Globe className="w-3 h-3" /> WEBHOOK_ACTIVE
+          </div>
+          <Button onClick={handleRunValidation} disabled={isRunning} className="bg-zinc-100 text-zinc-950 hover:bg-zinc-300 font-mono text-xs">
             {isRunning ? <RefreshCw className="w-3 h-3 animate-spin mr-2" /> : <Play className="w-3 h-3 mr-2" />}
-            RUN_VALIDATE_V3
+            RUN_CI_PIPELINE
           </Button>
         </div>
       </div>
-      {report && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono uppercase text-zinc-400">Structured Report: {report.status}</h3>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowJson(!showJson)} className="text-[10px] font-mono h-8">
-                <FileJson className="w-3.5 h-3.5 mr-2" /> {showJson ? 'HIDE_RAW' : 'VIEW_RAW'}
-              </Button>
-              <Button onClick={handleAutoFix} variant="outline" size="sm" className="text-[10px] font-mono h-8 border-cyan-500/20 text-cyan-500">
-                <Wand2 className="w-3.5 h-3.5 mr-2" /> AUTO_FIX
-              </Button>
-            </div>
-          </div>
-          {showJson ? (
-            <Card className="bg-black/80 border-emerald-500/20 p-4 font-mono shadow-[0_0_50px_rgba(16,185,129,0.05)]">
-              <pre className="text-[11px] leading-relaxed overflow-x-auto text-zinc-300">
-                {JSON.stringify(report, null, 2).split('\n').map((line, i) => (
-                  <div key={i} className="hover:bg-white/5 px-2 rounded">
-                    <span className="text-zinc-700 mr-4 w-6 inline-block text-right">{i + 1}</span>
-                    <span className={cn(
-                      line.includes('"Pass"') ? 'text-emerald-400 font-bold' : 
-                      line.includes('"Fail"') ? 'text-red-400 font-bold' : 
-                      line.includes('"Warning"') ? 'text-amber-400' :
-                      line.includes(':') ? 'text-cyan-600' : 'text-zinc-500'
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="bg-zinc-900/50 border-white/5">
+            <CardHeader className="border-b border-white/5">
+              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Active Workflow: ci.yml</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {[
+                  { id: 'review', name: 'Claude PR Review', status: 'Completed', icon: ShieldCheck, time: '2m ago' },
+                  { id: 'audit', name: 'Dependency Security Audit', status: 'Completed', icon: AlertTriangle, time: '4m ago' },
+                  { id: 'docs', name: 'Auto-Generate Documentation', status: 'In_Progress', icon: RefreshCw, time: 'Now' },
+                  { id: 'deploy', name: 'Infrastructure Validation', status: 'Pending', icon: Play, time: 'Scheduled' }
+                ].map((step) => (
+                  <div key={step.id} className="flex items-center justify-between p-4 bg-black/40 rounded-lg border border-white/5">
+                    <div className="flex items-center gap-4">
+                      <div className={cn("p-2 rounded-lg bg-zinc-800", step.status === 'In_Progress' && 'animate-spin')}>
+                        <step.icon className={cn("w-4 h-4", 
+                          step.status === 'Completed' ? 'text-emerald-500' : 
+                          step.status === 'In_Progress' ? 'text-cyan-500' : 'text-zinc-500'
+                        )} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">{step.name}</h4>
+                        <p className="text-[10px] text-zinc-500 font-mono uppercase">{step.time}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={cn(
+                      "text-[9px] font-mono",
+                      step.status === 'Completed' ? 'border-emerald-500/20 text-emerald-500' :
+                      step.status === 'In_Progress' ? 'border-cyan-500/20 text-cyan-500' : 'border-zinc-500/20 text-zinc-500'
                     )}>
-                      {line}
-                    </span>
+                      {step.status}
+                    </Badge>
                   </div>
                 ))}
-              </pre>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {report.checks.map((check) => (
-                <Card key={check.id} className={cn(
-                  "bg-zinc-900/40 border-white/5 p-4 transition-all duration-300",
-                  check.status === 'Fail' && "border-red-500/20 bg-red-500/5",
-                  check.status === 'Warning' && "border-amber-500/20 bg-amber-500/5"
-                )}>
-                  <div className="flex items-start justify-between mb-2">
-                    <Badge variant="outline" className="text-[8px] font-mono border-white/10">{check.category}</Badge>
-                    {check.status === 'Pass' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <AlertTriangle className={cn("w-4 h-4", check.status === 'Fail' ? 'text-red-500' : 'text-amber-500')} />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white mb-1">{check.id}</h4>
-                  <p className="text-[10px] text-zinc-500 leading-tight">{check.message}</p>
-                  {check.fixable && (
-                    <button 
-                      onClick={handleAutoFix}
-                      className="mt-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[8px] px-2 py-0.5 rounded uppercase font-bold hover:bg-cyan-500/20 transition-colors"
-                    >
-                      RECOVERABLE_FIX
-                    </button>
-                  )}
+              </div>
+            </CardContent>
+          </Card>
+          {report && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Build Telemetry</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowJson(!showJson)} className="text-[9px] font-mono h-6">
+                  {showJson ? 'HIDE_RAW' : 'VIEW_RAW'}
+                </Button>
+              </div>
+              {showJson ? (
+                <Card className="bg-black/90 border-white/5 p-4">
+                  <pre className="text-[10px] text-emerald-500 overflow-x-auto">
+                    {JSON.stringify(report, null, 2)}
+                  </pre>
                 </Card>
-              ))}
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {report.checks.slice(0, 4).map(check => (
+                    <div key={check.id} className="p-4 rounded-lg bg-zinc-900/50 border border-white/5 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase">{check.id}</span>
+                        <span className="text-[11px] text-zinc-300 font-bold">{check.status}</span>
+                      </div>
+                      <CheckCircle2 className={cn("w-4 h-4", check.status === 'Pass' ? 'text-emerald-500' : 'text-amber-500')} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Available Binaries</h3>
-          {infraFiles.map((file) => (
-            <Card key={file.path} className="bg-zinc-900/50 border-white/5 p-5 flex items-center justify-between hover:border-cyan-500/30 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-zinc-800 rounded">
-                  <FileCode className="w-5 h-5 text-cyan-500" />
+        <div className="space-y-6">
+          <Card className="bg-zinc-900/50 border-white/5">
+            <CardHeader className="border-b border-white/5">
+              <CardTitle className="text-xs font-mono uppercase text-zinc-500">Pipeline Artifacts</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-3">
+                  {workflow?.artifacts.map((art, i) => (
+                    <div key={i} className="p-3 rounded bg-black/40 border border-white/5 flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <FileCode className="w-4 h-4 text-zinc-500" />
+                        <span className="text-[11px] font-mono text-zinc-300 truncate max-w-[120px]">{art}</span>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="w-3 h-3" /></Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7"><Link className="w-3 h-3" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                  {!workflow?.artifacts.length && <p className="text-[10px] text-zinc-600 italic text-center py-10">No artifacts found for current run.</p>}
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white font-mono">{file.path.split('/').pop()}</h4>
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">PATH: {file.path}</p>
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" className="text-[10px] font-mono h-8 border-none hover:bg-zinc-800">
-                EXEC_SH
-              </Button>
-            </Card>
-          ))}
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase text-zinc-500 tracking-widest">Environment Context</h3>
-          <Card className="bg-black/40 border-white/5 p-6 space-y-4 font-mono text-[10px]">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">BASH_VER:</span>
-              <span className="text-emerald-500">{report?.systemContext.bashVersion || '5.2.x'}</span>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+          <Card className="bg-violet-500/5 border border-violet-500/10 p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal className="w-4 h-4 text-violet-500" />
+              <h4 className="text-[10px] font-mono text-violet-500 uppercase font-bold tracking-widest">Daemon Status</h4>
             </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">NODE_VER:</span>
-              <span className="text-emerald-500">{report?.systemContext.nodeVersion || 'v20.x'}</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">ARCH:</span>
-              <span className="text-cyan-500">{report?.systemContext.arch || 'aarch64'}</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-zinc-500">GATE_STATUS:</span>
-              <span className="text-emerald-500 font-bold">NOMINAL</span>
-            </div>
+            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed bg-black/40 p-3 rounded border border-white/5">
+              [INFO] Scheduled sweep in: 04:12:44<br/>
+              [OK] Last run status: SUCCESS (0 exit code)<br/>
+              [OK] Snapshots pruned: 12
+            </p>
+            <Button variant="outline" className="w-full text-[9px] font-mono h-8 border-violet-500/20 text-violet-400 hover:bg-violet-500/10">
+              TRIGGER_MANUAL_SWEEP
+            </Button>
           </Card>
         </div>
       </div>
