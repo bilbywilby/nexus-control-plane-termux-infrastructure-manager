@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Cpu, Shield, Globe, Terminal, Zap, Layers, Brain, Box, Sparkles, Search, Download, Star, ExternalLink, Cloud, Package, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
+import { cn } from '@/lib/utils';
 import type { Skill, PluginItem } from '../../../worker/types';
 export function SkillsView() {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
@@ -19,9 +20,9 @@ export function SkillsView() {
     const fetchSkills = async () => {
       const res = await chatService.getMessages();
       if (res.success && res.data) {
-        setSkills(res.data.skills);
-        setPlugins(res.data.plugins);
-        if (!selectedSkillId && res.data.skills.length > 0) {
+        setSkills(res.data.skills || []);
+        setPlugins(res.data.plugins || []);
+        if (!selectedSkillId && res.data.skills && res.data.skills.length > 0) {
           setSelectedSkillId(res.data.skills[0].id);
         }
       }
@@ -64,11 +65,12 @@ export function SkillsView() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedSkillId(skill.id)}
-                  className={`relative cursor-pointer p-6 rounded-2xl border flex flex-col items-center gap-3 transition-all ${
+                  className={cn(
+                    "relative cursor-pointer p-6 rounded-2xl border flex flex-col items-center gap-3 transition-all",
                     selectedSkillId === skill.id
-                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_30px_rgba(16,185,129,0.2)]'
-                      : 'bg-zinc-800/50 border-white/5 text-zinc-400 hover:border-emerald-500/30'
-                  }`}
+                      ? "bg-emerald-600 border-emerald-400 text-white shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+                      : "bg-zinc-800/50 border-white/5 text-zinc-400 hover:border-emerald-500/30"
+                  )}
                 >
                   <Cpu className="w-8 h-8" />
                   <span className="text-[10px] font-mono font-bold uppercase text-center">{skill.name}</span>
@@ -152,8 +154,8 @@ export function SkillsView() {
                   <p className="text-[10px] text-zinc-500 font-mono mb-4 uppercase">v{plugin.version} by {plugin.author}</p>
                   <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
                     <span className="text-[9px] font-mono text-zinc-500 uppercase">{plugin.downloads} DOWNLOADS</span>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => handleInstallPlugin(plugin.id)}
                       disabled={installing === plugin.id || plugin.status === 'Installed'}
                       className={cn(

@@ -19,7 +19,7 @@ export function OverviewView() {
     const interval = setInterval(fetchState, 5000);
     return () => clearInterval(interval);
   }, []);
-  const chartData = state?.reporting.uptimeTrend.map((val, i) => ({
+  const chartData = state?.reporting?.uptimeTrend?.map((val, i) => ({
     name: `Node ${i}`,
     latency: Math.floor(val * 0.8),
   })) || [];
@@ -33,13 +33,13 @@ export function OverviewView() {
           <div className="flex items-center gap-1 px-3 py-1.5 bg-violet-500/10 border border-violet-500/20 rounded-full">
             <Timer className="w-3 h-3 text-violet-500" />
             <span className="text-[9px] font-mono text-violet-500 font-bold uppercase tracking-tighter">
-              Daemon: {state?.faultTolerance.daemonLastRun ? new Date(state.faultTolerance.daemonLastRun).toLocaleTimeString() : 'N/A'}
+              Daemon: {state?.faultTolerance?.daemonLastRun ? new Date(state.faultTolerance.daemonLastRun).toLocaleTimeString() : 'N/A'}
             </span>
           </div>
           <div className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full">
             <AlertTriangle className="w-3 h-3 text-amber-500" />
             <span className="text-[9px] font-mono text-amber-500 font-bold uppercase tracking-tighter">
-              {state?.alerts.length || 0} Alerts
+              {state?.alerts?.length || 0} Alerts
             </span>
           </div>
         </div>
@@ -52,12 +52,13 @@ export function OverviewView() {
               <Cloud className="w-4 h-4 text-cyan-500" />
             </div>
             <div className="flex flex-col gap-1">
-              {state?.mcpServers.map(mcp => (
+              {state?.mcpServers?.map(mcp => (
                 <div key={mcp.id} className="flex items-center justify-between">
                   <span className="text-[11px] text-zinc-400 font-mono truncate mr-2">{mcp.name}</span>
                   <Badge variant="outline" className="text-[8px] h-3 px-1 border-emerald-500/20 text-emerald-500">{mcp.status}</Badge>
                 </div>
               ))}
+              {!state?.mcpServers && <div className="text-[10px] text-zinc-600 font-mono">Initializing...</div>}
             </div>
           </CardContent>
         </Card>
@@ -68,7 +69,7 @@ export function OverviewView() {
               <Bot className="w-4 h-4 text-violet-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold">{state?.reporting.daemonSuccessRate}%</h3>
+              <h3 className="text-xl font-bold">{state?.reporting?.daemonSuccessRate ?? 0}%</h3>
               <p className="text-[9px] text-zinc-500 font-mono">AUTOMATED_MAINTENANCE_OK</p>
             </div>
           </CardContent>
@@ -80,7 +81,7 @@ export function OverviewView() {
               <Layers className="w-4 h-4 text-amber-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold">{state?.workflow.artifacts.length || 0}</h3>
+              <h3 className="text-xl font-bold">{state?.workflow?.artifacts?.length || 0}</h3>
               <p className="text-[9px] text-zinc-500 font-mono">GH_ACTIONS_READY</p>
             </div>
           </CardContent>
@@ -92,7 +93,7 @@ export function OverviewView() {
               <Activity className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold">{state?.reporting.mcpToolCalls || 0}</h3>
+              <h3 className="text-xl font-bold">{state?.reporting?.mcpToolCalls || 0}</h3>
               <p className="text-[9px] text-zinc-500 font-mono">TOOL_COMPLEXITY_NOMINAL</p>
             </div>
           </CardContent>
@@ -123,23 +124,23 @@ export function OverviewView() {
            <Card className="bg-emerald-500/5 border border-emerald-500/10 p-5">
               <h4 className="text-[10px] font-mono text-emerald-500 uppercase font-bold tracking-widest mb-4">Self-Healing Trail</h4>
               <div className="space-y-4">
-                 {state?.auditLogs.filter(l => l.level === 'Recovery').slice(0, 3).map((log, i) => (
+                 {state?.auditLogs?.filter(l => l.level === 'Recovery').slice(0, 3).map((log, i) => (
                     <div key={i} className="space-y-1 pl-4 border-l border-emerald-500/20">
                        <p className="text-[10px] text-zinc-300 font-bold">{log.message}</p>
                        <p className="text-[9px] text-emerald-600 font-mono italic">{new Date(log.timestamp).toLocaleTimeString()}</p>
                     </div>
-                 ))}
+                 )) || <div className="text-[10px] text-zinc-600 font-mono">No recovery events.</div>}
               </div>
            </Card>
            <Card className="bg-violet-500/5 border border-violet-500/10 p-5">
               <h4 className="text-[10px] font-mono text-violet-500 uppercase font-bold tracking-widest mb-4">Daemon Logs</h4>
               <div className="space-y-4">
-                 {state?.auditLogs.filter(l => l.level === 'Daemon').slice(0, 3).map((log, i) => (
+                 {state?.auditLogs?.filter(l => l.level === 'Daemon').slice(0, 3).map((log, i) => (
                     <div key={i} className="space-y-1 pl-4 border-l border-violet-500/20">
                        <p className="text-[10px] text-zinc-300 font-bold">{log.message}</p>
                        <p className="text-[9px] text-violet-400 font-mono italic">{new Date(log.timestamp).toLocaleTimeString()}</p>
                     </div>
-                 ))}
+                 )) || <div className="text-[10px] text-zinc-600 font-mono">No daemon events.</div>}
               </div>
            </Card>
         </div>

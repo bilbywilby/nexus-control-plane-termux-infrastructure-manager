@@ -67,8 +67,8 @@ export function WorkflowView() {
                   <div key={step.id} className="flex items-center justify-between p-4 bg-black/40 rounded-lg border border-white/5">
                     <div className="flex items-center gap-4">
                       <div className={cn("p-2 rounded-lg bg-zinc-800", step.status === 'In_Progress' && 'animate-spin')}>
-                        <step.icon className={cn("w-4 h-4", 
-                          step.status === 'Completed' ? 'text-emerald-500' : 
+                        <step.icon className={cn("w-4 h-4",
+                          step.status === 'Completed' ? 'text-emerald-500' :
                           step.status === 'In_Progress' ? 'text-cyan-500' : 'text-zinc-500'
                         )} />
                       </div>
@@ -105,7 +105,7 @@ export function WorkflowView() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  {report.checks.slice(0, 4).map(check => (
+                  {report?.checks?.slice(0, 4).map(check => (
                     <div key={check.id} className="p-4 rounded-lg bg-zinc-900/50 border border-white/5 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-[10px] text-zinc-500 font-mono uppercase">{check.id}</span>
@@ -127,7 +127,7 @@ export function WorkflowView() {
             <CardContent className="p-4">
               <ScrollArea className="h-[300px]">
                 <div className="space-y-3">
-                  {workflow?.artifacts.map((art, i) => (
+                  {workflow?.artifacts?.map((art, i) => (
                     <div key={i} className="p-3 rounded bg-black/40 border border-white/5 flex items-center justify-between group">
                       <div className="flex items-center gap-3">
                         <FileCode className="w-4 h-4 text-zinc-500" />
@@ -138,8 +138,8 @@ export function WorkflowView() {
                         <Button size="icon" variant="ghost" className="h-7 w-7"><Link className="w-3 h-3" /></Button>
                       </div>
                     </div>
-                  ))}
-                  {!workflow?.artifacts.length && <p className="text-[10px] text-zinc-600 italic text-center py-10">No artifacts found for current run.</p>}
+                  )) || []}
+                  {(!workflow?.artifacts || workflow.artifacts.length === 0) && <p className="text-[10px] text-zinc-600 italic text-center py-10">No artifacts found for current run.</p>}
                 </div>
               </ScrollArea>
             </CardContent>
